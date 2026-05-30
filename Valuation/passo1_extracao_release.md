@@ -1,424 +1,236 @@
-# Passo 1 — Extração de Dados do Release de Resultados
+# Passo 1 — Extração do Release
 
-> **Objetivo deste passo:** Ler o release de resultados (PDF) fornecido pelo usuário e extrair todos os dados financeiros que alimentarão o valuation DCF. Ao final, produzir um JSON estruturado com os dados encontrados e uma lista clara do que ainda está faltando e precisará ser fornecido manualmente.
-
----
-
-## INSTRUÇÕES DE EXECUÇÃO
-
-Ao receber o release, execute as três fases abaixo em ordem. Não pule fases.
+**Objetivo:** ler o PDF do release e produzir `Acoes/<TICKER>/passo1.json` com todos os dados históricos necessários para o valuation DCF.  
+**Regra fundamental:** todos os valores financeiros no JSON devem estar em **MILHÕES (R$ M)**.
 
 ---
 
-## FASE 1 — LEITURA E MAPEAMENTO DO DOCUMENTO
+## FASE 1 — Identificar estrutura do documento
 
-Antes de extrair qualquer número, identifique a estrutura do release:
+Antes de extrair qualquer número, responda:
+1. Nome da empresa e ticker?
+2. Período do release (anual / trimestral / LTM)?
+3. Unidade reportada (milhares / milhões / bilhões)?
+4. O release contém: DRE? Balanço? Fluxo de Caixa? Notas sobre dívida?
 
-```
-1. Qual é o nome da empresa e ticker?
-2. Qual é o período de referência (trimestre/ano)?
-3. Qual é a moeda reportada e a unidade (milhares, milhões, bilhões)?
-4. O documento contém DRE (Demonstração de Resultado)?
-5. O documento contém Balanço Patrimonial?
-6. O documento contém Fluxo de Caixa?
-7. O documento contém notas explicativas com detalhamento de dívida?
-8. O documento contém informações sobre número de ações?
-```
-
-Registre as respostas antes de continuar.
+Registre as respostas. Elas determinam como tratar os números.
 
 ---
 
-## FASE 2 — EXTRAÇÃO DE DADOS
+## FASE 2 — Regra de Unidades
 
-Para cada item abaixo, tente localizar o valor no documento. Registre:
-- O valor encontrado
-- A seção/página onde foi encontrado
-- O nível de confiança: `DIRETO` (número exato no documento), `CALCULADO` (derivado de outros números do documento), ou `NÃO ENCONTRADO`
+**Converter tudo para MILHÕES antes de registrar no JSON:**
 
----
+| Unidade no release | Exemplo encontrado | Operação | Valor no JSON |
+|---|---|---|---|
+| Milhares (R$ mil) | 1.185.600 | ÷ 1.000 | 1.185,6 |
+| Milhões (R$ M) | 1.185,6 | nenhuma | 1.185,6 |
+| Bilhões (R$ B) | 1,186 | × 1.000 | 1.186,0 |
 
-### REGRA FUNDAMENTAL DE UNIDADES
-
-> **Todos os valores numéricos no JSON de saída devem estar em MILHÕES (R$ M)**, independentemente de como a empresa reporta no release.
-
-| Se o release reporta em... | Exemplo no release | Valor a registrar no JSON |
-|---|---|---|
-| R$ milhares (mil) | 1.185.600 | 1.185,6 (÷ 1.000) |
-| R$ milhões (M) | 1.185,6 | 1.185,6 (usar diretamente) |
-| R$ bilhões (B ou Bi) | 1,186 | 1.186,0 (× 1.000) |
-
-**Verificação de escala obrigatória:** `MktCap (P × Shares)` e `Rev_0` devem ser da mesma ordem de grandeza. Para uma empresa industrial/telecom/varejo, a razão MktCap/Rev_0 tipicamente fica entre 0,3× e 15×. Se o resultado for > 20×, há quase certeza de erro de unidade em Rev_0.
+**Verificação de escala obrigatória:** calcule `MktCap / Rev_0` ao final.
+- Entre 0,3× e 15×: normal para maioria dos setores.
+- Acima de 20×: PARAR — há quase certeza de erro de unidade. Revisar antes de continuar.
 
 ---
 
-### BLOCO A — Dados da DRE (Demonstração de Resultado)
+## FASE 3 — Extração campo a campo
 
-**A1. Receita Líquida**
-```
-Procure por: "Receita Líquida", "Net Revenue", "Net Sales", "Receita de Vendas"
-Símbolo no modelo: Rev_0
-Período: preferir LTM (últimos 12 meses). Se não disponível, usar o anual mais recente.
-Se o release for trimestral: verificar se há coluna "Acumulado 12M" ou "LTM". 
-Se não houver, registrar como "trimestral — necessita anualização".
-```
+Para cada campo: localizar no documento → converter unidade → registrar valor e fonte.  
+Se não encontrado: registrar `"valor": null, "confianca": "PENDENTE"` e incluir na lista de lacunas.
 
-**A2. EBIT (Lucro Operacional)**
-```
-Procure por: "EBIT", "Resultado Operacional", "Lucro Operacional", "Operating Income"
-Símbolo no modelo: EBIT_0
-Atenção: alguns releases usam "EBIT ajustado" (exclui itens não recorrentes).
-Registrar os dois se ambos existirem e indicar qual foi usado.
-Se não encontrado diretamente: EBIT = Lucro Bruto − Despesas Operacionais
-```
+### Bloco DRE
 
-**A3. EBITDA**
-```
-Procure por: "EBITDA", "Resultado antes de juros, impostos, depreciação e amortização"
-Símbolo no modelo: usado para derivar Depreciação (D&A = EBITDA − EBIT)
-```
+**Rev_0 — Receita Líquida**
+- Buscar: "Receita Líquida", "Net Revenue", "Receita Operacional Líquida"
+- Preferir LTM (últimos 12 meses). Se release anual: usar diretamente.
+- Se trimestral sem coluna LTM: `LTM = 4T_anterior + Acumulado_atual − Acumulado_anterior_mesmo_período`
+- Se impossível calcular LTM: registrar valor trimestral com nota "necessita anualização"
 
-**A4. Depreciação e Amortização (D&A)**
-```
-Procure por: "Depreciação", "Amortização", "D&A", "Depreciation and Amortization"
-Símbolo no modelo: Dep
-Se não encontrado diretamente: Dep = EBITDA − EBIT (se ambos disponíveis)
-```
+**EBIT_0 — Resultado Operacional**
+- Buscar: "EBIT", "Resultado Operacional", "Lucro Operacional", "Operating Income"
+- **ATENÇÃO:** EBIT ≠ EBITDA. EBIT já deduz depreciação. Se o release mostrar apenas EBITDA: `EBIT = EBITDA − Dep`
+- Sinal de alerta: se `EBIT_0 / Rev_0 > 40%` provavelmente é EBITDA por engano — verificar
 
-**A5. Resultado Financeiro / Despesa com Juros**
-```
-Procure por: "Resultado Financeiro", "Despesas Financeiras", "Juros sobre Dívida",
-             "Financial Expenses", "Interest Expense"
-Símbolo no modelo: Juros
-Atenção: separar despesa de juros de variação cambial e outros itens financeiros.
-Registrar o valor bruto de juros pagos, não o resultado financeiro líquido.
-```
+**EBITDA**
+- Buscar: "EBITDA"
+- Usado para calcular Dep = EBITDA − EBIT. Se não disponível, registrar null.
 
-**A6. Lucro Antes do IR (LAIR)**
-```
-Procure por: "LAIR", "EBT", "Lucro Antes do Imposto de Renda", "Pre-tax Income"
-Usado para: calcular alíquota efetiva de IR
-```
+**Dep — Depreciação e Amortização**
+- Buscar: "Depreciação", "Amortização", "D&A" no fluxo de caixa
+- Se não encontrado diretamente: `Dep = EBITDA − EBIT_0` (se ambos disponíveis)
 
-**A7. Imposto de Renda e CSLL Pagos**
-```
-Procure por: "Imposto de Renda", "IRPJ", "CSLL", "Income Tax Expense"
-Símbolo no modelo: usado para calcular IR_ef = IR_pago / LAIR
-```
+**Juros — Despesa com Juros**
+- Buscar: "Juros sobre dívida", "Despesas Financeiras — Juros", "Interest Expense"
+- Incluir APENAS juros sobre dívida financeira.
+- Excluir: variação cambial, multas, juros sobre impostos, resultado de hedge.
+- Se o release misturar: anotar o valor bruto de juros separadamente do resultado financeiro líquido.
 
-**A8. Lucro Líquido**
-```
-Procure por: "Lucro Líquido", "Net Income", "Resultado Líquido"
-Usado para: verificação de consistência (não entra diretamente no DCF)
-```
+**LAIR — Lucro Antes do Imposto**
+- Buscar: "LAIR", "EBT", "Lucro Antes do IR", "Pre-tax Income"
 
-**A9. Margem EBIT Atual**
-```
-Calcular: Mg_atual = EBIT_0 / Rev_0
-Registrar como referência para definição da Mg_1 pelo analista.
-```
+**IR_pago — Imposto de Renda Pago**
+- Buscar: "IRPJ e CSLL", "Imposto de Renda", "Income Tax Expense"
+- Usar o valor da despesa contábil (não o IR em caixa do fluxo de caixa, salvo se for o único disponível)
+
+### Bloco Balanço
+
+**D — Dívida Financeira Bruta**
+- Buscar: "Dívida Bruta", "Empréstimos e Financiamentos", "Debêntures"
+- Somar: parte circulante (curto prazo) + parte não circulante (longo prazo)
+- Excluir: arrendamentos IFRS 16, contas a pagar, impostos diferidos
+- Exceção: se a empresa divulga "Dívida ex-IFRS 16" explicitamente, usar esse valor
+
+**Caixa**
+- Buscar: "Caixa e Equivalentes", "Aplicações Financeiras de Curto Prazo"
+- Incluir: caixa + aplicações com vencimento < 90 dias
+
+**D_liq — Dívida Líquida**
+- Buscar: "Dívida Líquida", "Net Debt" — usar como campo de verificação
+- Calcular: `D_liq_calc = D − Caixa`. Deve bater com o valor do release (tolerância 2%).
+- Se divergir > 2%: investigar antes de registrar.
+
+**PL — Patrimônio Líquido**
+- Buscar: "Patrimônio Líquido" total consolidado
+
+**MinInt — Participações Minoritárias**
+- Buscar: "Não Controladores", "Minority Interest"
+- Se não encontrado: registrar 0 com nota "não identificado no release"
+
+**AtvNOp — Ativos Não Operacionais**
+- Participações em empresas não relacionadas à operação, imóveis não operacionais
+- Se não identificado: registrar 0
+
+### Bloco Mercado e Ações
+
+**Shares — Ações em Circulação**
+- Buscar: "Ações em Circulação", "Shares Outstanding", total ON + PN
+- Excluir ações em tesouraria
+- Converter para milhões: se o release reportar em unidades, dividir por 1.000.000
+- Exemplo: "399.087.450 ações" → Shares = 399,087
+
+**P — Preço da Ação**
+- Buscar: cotação divulgada no release ou valor de mercado ÷ Shares
+- Se não encontrado no release: registrar `"valor": null, "confianca": "PENDENTE"` e solicitar ao usuário
+
+**MktCap**
+- Buscar: "Market Cap", "Valor de Mercado" — campo de verificação
+- Calcular: `MktCap_calc = P × Shares`. Deve bater com release (tolerância 5%).
+
+### Bloco Operacional
+
+**Rev_ant — Receita do Período Anterior**
+- Coluna comparativa do mesmo período do ano anterior
+
+**CAPEX**
+- Buscar: "Investimentos", "Aquisição de imobilizado", "Additions to PP&E"
 
 ---
 
-### BLOCO B — Dados do Balanço Patrimonial
+## FASE 4 — Calcular campos derivados
 
-**B1. Patrimônio Líquido Contábil**
-```
-Procure por: "Patrimônio Líquido", "Equity", "Shareholders' Equity"
-Símbolo no modelo: PL
-Usar o valor total consolidado (incluindo minoritários separadamente, se houver).
-```
+Após extrair todos os campos, calcular:
 
-**B2. Dívida Financeira Total**
 ```
-Procure por: "Dívida Bruta", "Empréstimos e Financiamentos", "Gross Debt",
-             "Loans and Borrowings", "Debentures", "CRI", "CRA"
-Símbolo no modelo: D
-= Dívida Circulante (curto prazo) + Dívida Não Circulante (longo prazo)
-Excluir: contas a pagar, impostos diferidos, arrendamentos IFRS 16 (a menos que 
-         a empresa já converta leases em dívida na sua apresentação)
-```
+IR_ef      = IR_pago / LAIR
+             → esperado entre 0,15 e 0,45 para empresas brasileiras
+             → se < 0 ou > 0,60: revisar IR_pago e LAIR
 
-**B3. Caixa e Equivalentes**
-```
-Procure por: "Caixa e Equivalentes de Caixa", "Cash and Cash Equivalents",
-             "Aplicações Financeiras de Curto Prazo", "Disponibilidades"
-Símbolo no modelo: Caixa
-Incluir: caixa + aplicações financeiras de curtíssimo prazo (< 90 dias)
-```
+Mg_atual   = EBIT_0 / Rev_0
+             → se > 0,40: verificar se EBIT_0 é realmente EBIT (não EBITDA)
 
-**B4. Dívida Líquida**
-```
-Procure por: "Dívida Líquida", "Net Debt"
-= D − Caixa
-Registrar como verificação: se encontrado no release, deve bater com B2 − B3.
-```
+g_recente  = (Rev_0 / Rev_ant) − 1
 
-**B5. Participações Minoritárias**
-```
-Procure por: "Participações de Acionistas Não Controladores", "Minority Interest",
-             "Não Controladores"
-Símbolo no modelo: MinInt
-Se não mencionado, registrar como 0 e indicar "não encontrado no release".
-```
+CI         = PL + D − Caixa
 
-**B6. Outros Ativos Não Operacionais**
-```
-Procure por: participações em outras empresas, imóveis não operacionais,
-             investimentos de longo prazo não ligados à operação principal
-Símbolo no modelo: AtvNOp
-Este item raramente aparece de forma explícita; registrar 0 se não identificado.
-```
+ROIC_atual = (EBIT_0 × (1 − IR_ef)) / CI
 
-**B7. Capital Investido**
-```
-Calcular: CI = PL + D − Caixa
-Registrar como dado auxiliar para validação do Sales-to-Capital ratio.
+StC_hist   = Rev_0 / CI
+
+D_liq_calc = D − Caixa  → comparar com D_liq do release
+
+MktCap_calc = P × Shares  → comparar com MktCap do release
 ```
 
 ---
 
-### BLOCO C — Dados de Mercado e Ações
+## FASE 5 — Verificações de consistência
 
-**C1. Número de Ações em Circulação**
+Executar antes de produzir o JSON final:
+
 ```
-Procure por: "Ações em Circulação", "Shares Outstanding", "Quantidade de Ações",
-             "Capital Social — ações ordinárias + preferenciais"
-Símbolo no modelo: Shares
-Atenção: registrar total de ações (ON + PN se houver), excluindo ações em tesouraria.
-Se o release apresentar em unidades: converter para milhões dividindo por 1.000.000.
+[ ] 1. MktCap_calc = P × Shares = ___ × ___ = ___ M
+        MktCap do release = ___ M   |   Diferença: ___%
+        → OK se < 5%. Se > 5%: revisar Shares (total vs. circulante vs. ex-tesouraria)
+
+[ ] 2. D_liq_calc = D − Caixa = ___ − ___ = ___ M
+        D_liq do release = ___ M   |   Diferença: ___%
+        → OK se < 2%. Se > 2%: verificar componentes de D e Caixa
+
+[ ] 3. EBIT_0 < EBITDA  (sempre deve ser verdade)
+        EBIT_0 = ___ M, EBITDA = ___ M   →   OK | FALHA (revisar extração)
+
+[ ] 4. IR_ef = ___ (esperado 0,15–0,45)   →   OK | ALERTA
+
+[ ] 5. MktCap_calc / Rev_0 = ___ / ___ = ___×
+        → OK se ≤ 15×. Se > 20×: PARAR — erro de unidade. Não continuar.
+
+[ ] 6. D > 0 e D / MktCap_calc = ___% 
+        → Se D > 0 mas ratio < 1%: PARAR — erro de unidade em D.
 ```
 
-**C2. Preço da Ação na Data do Release**
-```
-Procure por: cotação divulgada no release, valor de mercado + ações = preço implícito.
-Símbolo no modelo: P
-Observação: o release pode não trazer o preço atual — registrar como NÃO ENCONTRADO
-            e solicitar ao usuário separadamente.
-```
-
-**C3. Capitalização de Mercado**
-```
-Procure por: "Market Cap", "Valor de Mercado", mencionado em seção de "Destaques"
-Símbolo no modelo: MktCap (calculado = P × Shares, mas pode vir explícito)
-```
-
-**C4. Valor Patrimonial por Ação (VPA)**
-```
-Calcular: VPA = PL / Shares
-Registrar como referência comparativa.
-```
+Se alguma verificação falhar: corrigir antes de salvar o JSON.
 
 ---
 
-### BLOCO D — Dados Operacionais Complementares
-
-**D1. ROIC (Retorno sobre Capital Investido)**
-```
-Procure por: "ROIC", "Retorno sobre Capital Investido"
-Se não encontrado: ROIC = NOPAT / CI = [EBIT × (1 − IR_ef)] / (PL + D − Caixa)
-Símbolo no modelo: referência para validar StC ratio
-```
-
-**D2. Receita do Período Anterior**
-```
-Procure por: coluna comparativa do ano/trimestre anterior
-Usado para: calcular crescimento de receita recente (referência para premissas g1 e g2_5)
-```
-
-**D3. Crescimento de Receita Recente**
-```
-Calcular: g_recente = (Rev_atual / Rev_anterior) − 1
-Registrar como dado de referência para o analista calibrar g1 e g2_5.
-```
-
-**D4. CAPEX**
-```
-Procure por: "CAPEX", "Investimentos", "Additions to PP&E", "Imobilizado"
-             (variação do imobilizado bruto entre períodos)
-Registrar como dado auxiliar — não entra diretamente no modelo DCF de Damodaran,
-mas ajuda a calibrar o Sales-to-Capital ratio.
-```
-
-**D5. Número de Funcionários / Outras Métricas Operacionais**
-```
-Registrar apenas se o setor usar métricas específicas de valor:
-- Telecoms: assinantes, ARPU, churn
-- Varejo: lojas, SSS (same-store sales)
-- Bancos: carteira de crédito, NIM, inadimplência
-Estas métricas auxiliam a narrativa do analista, não os cálculos do DCF.
-```
-
----
-
-## VERIFICAÇÕES DE CONSISTÊNCIA (executar antes da Fase 3)
-
-Antes de produzir o JSON, calcule e verifique cada item abaixo. Inclua os números reais — não apenas "OK".
-
-```
-[ ] 1. Mg_atual = EBIT_0 / Rev_0 = ___ / ___ = ____%
-        (usar EBIT operacional, NÃO EBITDA)
-        Se Mg_atual > 40%: verificar se o numerador é EBIT ou EBITDA — são diferentes.
-        Registrar: Mg_atual = ____
-
-[ ] 2. MktCap_calc = P × Shares = ___ × ___ = ___ M
-        MktCap encontrado no release = ___ M
-        Diferença: ___% → aceitável se < 5% (pode haver diferença de data de cotação)
-        Se > 5%: verificar qual Shares foi usado (total, circulante, excl. tesouraria)
-
-[ ] 3. D_liq_calc = D − Caixa = ___ − ___ = ___ M
-        D_liq encontrada no release = ___ M
-        Diferença: ___% → deve ser < 2%. Se divergir, registrar o motivo.
-
-[ ] 4. IR_ef = IR_pago / LAIR = ___ / ___ = ____%
-        Esperado para empresas brasileiras: entre 15% e 40%.
-        Se IR_ef < 0 ou > 50%: revisar os valores de IR_pago e LAIR.
-
-[ ] 5. Verificação de escala: MktCap / Rev_0 = ___ / ___ = ___×
-        Se > 20×: PARAR — muito provável erro de unidade em Rev_0.
-        Exemplo correto: MktCap = 1.930 M, Rev_0 = 1.185 M → razão = 1,6× ✓
-```
-
-Se qualquer verificação falhar, corrigir antes de produzir o JSON de saída.
-
----
-
-## FASE 3 — OUTPUT ESTRUTURADO
-
-Após a extração, produza obrigatoriamente os dois blocos abaixo.
-
-### BLOCO OUTPUT 1 — JSON de Dados Extraídos
-
-Salvar json em pasta Acoes/:ticker/:passo.json
+## FASE 6 — JSON de saída
 
 ```json
 {
   "empresa": {
-    "nome": "...",
-    "ticker": "...",
-    "pais": "...",
-    "setor": "...",
-    "moeda": "...",
+    "nome": "",
+    "ticker": "",
+    "pais": "",
+    "setor": "",
+    "moeda": "BRL",
     "unidade": "milhões"
   },
   "periodo_referencia": {
-    "tipo": "anual | trimestral | LTM",
-    "data": "YYYY-MM-DD ou AAAA-TT"
+    "tipo": "anual | LTM | trimestral",
+    "data": "YYYY-MM-DD"
   },
   "dre": {
-    "Rev_0":       { "valor": null, "confianca": "DIRETO | CALCULADO | NÃO ENCONTRADO", "fonte": "..." },
-    "EBIT_0":      { "valor": null, "confianca": "...", "fonte": "..." },
-    "EBITDA":      { "valor": null, "confianca": "...", "fonte": "..." },
-    "Dep":         { "valor": null, "confianca": "...", "fonte": "..." },
-    "Juros":       { "valor": null, "confianca": "...", "fonte": "..." },
-    "LAIR":        { "valor": null, "confianca": "...", "fonte": "..." },
-    "IR_pago":     { "valor": null, "confianca": "...", "fonte": "..." },
-    "IR_ef":       { "valor": null, "confianca": "CALCULADO", "fonte": "IR_pago / LAIR" },
-    "Mg_atual":    { "valor": null, "confianca": "CALCULADO", "fonte": "EBIT_0 / Rev_0" }
+    "Rev_0":    { "valor": null, "confianca": "DIRETO | CALCULADO | PENDENTE", "fonte": "" },
+    "EBIT_0":   { "valor": null, "confianca": "", "fonte": "" },
+    "EBITDA":   { "valor": null, "confianca": "", "fonte": "" },
+    "Dep":      { "valor": null, "confianca": "", "fonte": "" },
+    "Juros":    { "valor": null, "confianca": "", "fonte": "" },
+    "LAIR":     { "valor": null, "confianca": "", "fonte": "" },
+    "IR_pago":  { "valor": null, "confianca": "", "fonte": "" },
+    "IR_ef":    { "valor": null, "confianca": "CALCULADO", "fonte": "IR_pago / LAIR" },
+    "Mg_atual": { "valor": null, "confianca": "CALCULADO", "fonte": "EBIT_0 / Rev_0" }
   },
   "balanco": {
-    "PL":          { "valor": null, "confianca": "...", "fonte": "..." },
-    "D":           { "valor": null, "confianca": "...", "fonte": "..." },
-    "Caixa":       { "valor": null, "confianca": "...", "fonte": "..." },
-    "D_liq":       { "valor": null, "confianca": "CALCULADO", "fonte": "D − Caixa" },
-    "MinInt":      { "valor": null, "confianca": "...", "fonte": "..." },
-    "AtvNOp":      { "valor": null, "confianca": "...", "fonte": "..." },
-    "CI":          { "valor": null, "confianca": "CALCULADO", "fonte": "PL + D − Caixa" }
+    "PL":     { "valor": null, "confianca": "", "fonte": "" },
+    "D":      { "valor": null, "confianca": "", "fonte": "" },
+    "Caixa":  { "valor": null, "confianca": "", "fonte": "" },
+    "D_liq":  { "valor": null, "confianca": "", "fonte": "" },
+    "MinInt": { "valor": null, "confianca": "", "fonte": "" },
+    "AtvNOp": { "valor": null, "confianca": "", "fonte": "" },
+    "CI":     { "valor": null, "confianca": "CALCULADO", "fonte": "PL + D − Caixa" }
   },
   "mercado": {
-    "Shares":      { "valor": null, "confianca": "...", "fonte": "..." },
-    "P":           { "valor": null, "confianca": "...", "fonte": "..." },
-    "MktCap":      { "valor": null, "confianca": "...", "fonte": "..." }
+    "Shares": { "valor": null, "confianca": "", "fonte": "" },
+    "P":      { "valor": null, "confianca": "", "fonte": "" },
+    "MktCap": { "valor": null, "confianca": "", "fonte": "" }
   },
   "operacional": {
-    "Rev_anterior":    { "valor": null, "confianca": "...", "fonte": "..." },
-    "g_recente":       { "valor": null, "confianca": "CALCULADO", "fonte": "Rev_0/Rev_ant − 1" },
-    "ROIC_atual":      { "valor": null, "confianca": "CALCULADO", "fonte": "NOPAT / CI" },
-    "CAPEX":           { "valor": null, "confianca": "...", "fonte": "..." },
-    "metricas_setor":  {}
+    "Rev_ant":    { "valor": null, "confianca": "", "fonte": "" },
+    "g_recente":  { "valor": null, "confianca": "CALCULADO", "fonte": "Rev_0/Rev_ant − 1" },
+    "ROIC_atual": { "valor": null, "confianca": "CALCULADO", "fonte": "NOPAT/CI" },
+    "StC_hist":   { "valor": null, "confianca": "CALCULADO", "fonte": "Rev_0/CI" },
+    "CAPEX":      { "valor": null, "confianca": "", "fonte": "" }
   }
 }
 ```
 
-### BLOCO OUTPUT 2 — Tabela de Status e Lacunas
-
-Após o JSON, apresente esta tabela resumindo o que foi e o que não foi encontrado:
-
-```
-DADOS EXTRAÍDOS DO RELEASE
-══════════════════════════════════════════════════════════════════
-Variável          │ Valor encontrado │ Status      │ Ação necessária
-──────────────────┼──────────────────┼─────────────┼───────────────
-Rev_0             │                  │             │
-EBIT_0            │                  │             │
-Dep               │                  │             │
-Juros             │                  │             │
-IR_ef             │                  │             │
-PL                │                  │             │
-D                 │                  │             │
-Caixa             │                  │             │
-MinInt            │                  │             │
-Shares            │                  │             │
-P                 │                  │             │
-══════════════════════════════════════════════════════════════════
-
-STATUS: DIRETO = extraído diretamente | CALCULADO = derivado | FALTANDO = não encontrado
-
-INPUTS QUE PRECISARÃO SER FORNECIDOS PELO ANALISTA (não estão no release):
-  → [listar aqui todos os itens com status FALTANDO ou que são premissas]
-```
-
----
-
-## ALERTAS E CASOS ESPECIAIS
-
-### Releases Trimestrais
-```
-Se o release for trimestral (ex: 1T25, 2T25), verificar:
-1. Existe coluna "Acumulado 12M" ou "LTM"? → usar diretamente
-2. Existe coluna "Acumulado no ano" (YTD)? → não anualizar diretamente; alertar o usuário
-3. Apenas dados do trimestre? → multiplicar por 4 apenas como estimativa aproximada;
-   alertar que anualização simples pode distorcer sazonalidade
-```
-
-### EBIT Ajustado vs. Reportado
-```
-Muitos releases apresentam EBIT ajustado (excluindo itens não recorrentes).
-Registrar os dois valores se disponíveis.
-Recomendação: usar o EBIT ajustado para projeções futuras (mais representativo da
-operação recorrente), mas indicar a diferença ao analista.
-```
-
-### Empresas com Leasing (IFRS 16)
-```
-Após 2019, balanços IFRS incluem direito de uso (arrendamentos) como ativo e dívida.
-Se a empresa divulga dívida ajustada (ex-IFRS 16), registrar os dois valores.
-Indicar ao analista qual usar — o modelo padrão usa dívida financeira
-(empréstimos e debêntures), excluindo arrendamentos operacionais.
-```
-
-### EBITDA não Divulgado
-```
-Se o EBITDA não aparecer explicitamente:
-  EBITDA = EBIT + Dep (se Dep disponível no fluxo de caixa)
-  D&A = EBITDA − EBIT (se EBITDA disponível e EBIT disponível)
-Registrar qual caminho foi usado.
-```
-
----
-
-## O QUE ESTE PASSO NÃO FAZ
-
-Os itens abaixo **não** podem ser extraídos de releases de resultados e serão coletados em passos posteriores:
-
-```
-✗ Beta desalavancado do setor         → requer base de dados de mercado (Damodaran)
-✗ Prêmio de risco do país (ERP)       → requer base de dados de mercado (Damodaran)
-✗ Taxa livre de risco (Rf)            → requer dados de mercado de renda fixa
-✗ WACC estável de maturidade          → calculado no Passo 3
-✗ Premissas de crescimento (g1, g2_5) → definidas pelo analista no Passo 2
-✗ Margem EBIT alvo (Mg_alvo)          → definida pelo analista no Passo 2
-✗ Sales-to-Capital ratio              → definido/calibrado pelo analista no Passo 2
-✗ Taxa de crescimento na perpetuidade → definida pelo analista no Passo 2
-```
-
+**Ao final:** listar todos os campos com status PENDENTE e solicitar ao usuário antes de avançar ao Passo 2.

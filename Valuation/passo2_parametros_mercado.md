@@ -1,310 +1,173 @@
-# Passo 2 — Coleta de Parâmetros de Mercado
+# Passo 2 — Parâmetros de Mercado
 
-> **Pré-requisito:** o JSON do Passo 1 deve estar completo, com `Rev_0`, `EBIT_0`, `Juros`, `D`, `Caixa`, `PL`, `Shares`, `P`, `IR_ef`, e os campos `empresa.pais` e `empresa.setor` preenchidos.
-> Se qualquer um desses campos estiver nulo, volte ao Passo 1 antes de continuar.
-
-**Objetivo:** coletar os 6 parâmetros externos que não existem no release de resultados e que são necessários para calcular o WACC. Ao final, produzir o JSON do Passo 2 com todos os campos preenchidos e zero nulos.
-
----
-
-## REGRA DE OURO DESTE PASSO
-
-Nenhum parâmetro desta seção deve ser inventado ou estimado sem fonte. Para cada item:
-1. Indique a fonte exata (URL, base de dados, data de consulta)
-2. Indique se o valor é da data da avaliação ou o mais recente disponível
-3. Se não conseguir obter o valor, marque como `PENDENTE` e solicite ao usuário — nunca use um placeholder silencioso
+**Pré-requisito:** `passo1.json` completo, sem campos PENDENTE nos blocos dre/balanco/mercado.  
+**Objetivo:** coletar os 6 parâmetros externos para calcular o WACC.  
+**Regra:** nenhum valor estimado sem fonte. Se não conseguir obter: marcar `PENDENTE` e solicitar ao usuário.
 
 ---
 
-## ITEM 2.1 — Taxa Livre de Risco (`Rf`)
+## 2.1 — Rf (Taxa Livre de Risco)
 
-**O que é:** yield do título soberano de longo prazo (10 anos) do país de referência da avaliação.
+**Brasil:** buscar o yield da NTN-B 2035 (IPCA+ longo prazo) no site da ANBIMA.  
+Usar a taxa nominal (IPCA + prêmio real), expressa em decimal (ex: 0,1453 para 14,53%).  
+Registrar a data de consulta — o yield muda diariamente.
 
-**Como obter:**
+**EUA:** yield do Treasury 10Y (fonte: FRED, série DGS10), em decimal.
+
+**Atenção:** Rf deve estar na mesma moeda que os fluxos de caixa do modelo (BRL para empresas brasileiras).
 
 ```
-1. Identificar o país do modelo (campo empresa.pais do JSON do Passo 1)
-2. Para Brasil: usar a taxa do NTN-B 2035 (IPCA+) ou a ETTJ de 10 anos da ANBIMA
-   → Fonte: https://www.anbima.com.br/pt_br/informar/taxas-e-indices/
-   → Alternativa: usar a Selic esperada de longo prazo (Focus/BCB)
-3. Para EUA: usar o yield do Treasury de 10 anos
-   → Fonte: https://fred.stlouisfed.org (série DGS10)
-4. Para outros países: buscar o yield do título soberano local de 10 anos
+Rf = ____   Fonte: ________________   Data: ________
 ```
-
-**Anotações obrigatórias:**
-```
-Rf = ____%
-Fonte: ________________
-Data de consulta: ________
-Observação: ________________ (ex: taxa nominal ou real? em qual moeda?)
-```
-
-**Atenção:** se a avaliação for feita em moeda local (ex: BRL), use Rf em BRL. Se for em USD, use Rf em USD. O WACC deve ser calculado na mesma moeda dos fluxos de caixa.
 
 ---
 
-## ITEM 2.2 — Prêmio de Risco de Equity do País (`ERP`)
+## 2.2 — ERP (Prêmio de Risco de Equity)
 
-**O que é:** retorno adicional exigido pelos investidores em equity em relação ao título livre de risco, já incorporando o risco-país.
-
-**Como obter:**
-
-```
-Fonte primária: base de dados do Prof. Damodaran (NYU)
-IMPORTANT: Verifique na pasta Valuation/data/country-default-spreads-and-risk-premiums.md
+Fonte: arquivo `Valuation/data/country-default-spreads-and-risk-premiums.md`
 
 Procedimento:
-1. Acessar a tabela "Country Risk Premiums" (atualizada em janeiro de cada ano)
-2. Localizar o país do campo empresa.pais
-3. Copiar o valor da coluna "Equity Risk Premium" (ERP total, não apenas o CRP)
+1. Localizar o país de `empresa.pais` do passo1.json
+2. Copiar o valor da coluna **"Equity Risk Premium"** (ERP total = base EUA + Country Risk Premium)
+3. Se o país não estiver listado individualmente: usar o ERP da região (ex: "Latin America")
 
-Se o país não estiver listado individualmente:
-→ Usar o ERP da região correspondente (ex: Latin America)
-→ Registrar que foi usado o valor regional e não o específico do país
 ```
-
-**Anotações obrigatórias:**
-```
-ERP = ____%
-País consultado: ________________
-Fonte: Damodaran — Country Risk Premiums
-Data da tabela (ano de referência): ________
-Coluna utilizada: "Equity Risk Premium"
+ERP = ____   País consultado: ________________   Ano da tabela: ____
 ```
 
 ---
 
-## ITEM 2.3 — Beta Desalavancado do Setor (`Beta_u`)
+## 2.3 — Beta_u (Beta Desalavancado do Setor)
 
-**O que é:** medida de risco operacional do setor, sem o efeito da alavancagem financeira da empresa específica.
-
-**Como obter:**
-
-```
-Fonte primária: base de dados do Prof. Damodaran (NYU)
-IMPORTANT: Verifique na pasta Valuation/data/beta-by-sector.md
+Fonte: arquivo `Valuation/data/beta-by-sector.md`
 
 Procedimento:
-1. Acessar a tabela "Betas by Sector (Global)"
-2. Localizar o setor correspondente ao campo empresa.setor do JSON do Passo 1
-3. Copiar o valor da coluna "Unlevered Beta (corrected for cash)"
-   → Esta coluna já remove o efeito do caixa e da alavancagem
+1. Identificar o setor em `empresa.setor` do passo1.json
+2. Localizar o setor mais próximo na tabela
+3. Copiar o valor da coluna **"Unlevered Beta corrected for cash"**
+4. Se não houver correspondência exata: registrar o setor usado e a justificativa
 
-Se o setor não tiver correspondência exata:
-→ Usar o setor mais próximo e registrar a justificativa
-→ Alternativa: usar a média ponderada de dois setores se a empresa for diversificada
 ```
-
-**Anotações obrigatórias:**
-```
-Beta_u = _____
-Setor consultado na tabela: ________________
-Setor da empresa (JSON Passo 1): ________________
-Fonte: Damodaran — Betas by Sector (Global)
-Data da tabela (ano de referência): ________
-Coluna utilizada: "Unlevered Beta (corrected for cash)"
-Observação: ________________ (ex: setor exato ou aproximação?)
+Beta_u = ____   Setor consultado: ________________   Setor da empresa: ________________
 ```
 
 ---
 
-## ITEM 2.4 — Custo Pré-Imposto da Dívida (`Kd_pre`)
+## 2.4 — Kd_pre (Custo Pré-Imposto da Dívida)
 
-**O que é:** taxa de juros efetiva que a empresa paga sobre sua dívida financeira.
-
-**Como calcular (dados já disponíveis do Passo 1):**
+**Cálculo principal** (usar os valores do passo1.json):
 
 ```
-Kd_pre = Juros / D
-
-Onde:
-  Juros = despesa com juros (campo dre.Juros do JSON do Passo 1)
-  D     = dívida financeira total (campo balanco.D do JSON do Passo 1)
+Juros = passo1.dre.Juros.valor  = ___ M
+D     = passo1.balanco.D.valor  = ___ M
+Kd_pre = Juros / D = ___ / ___ = ____%
 ```
 
-**CÁLCULO OBRIGATÓRIO — mostrar os números reais antes de registrar:**
+**Verificação obrigatória — comparar com Rf:**
 
 ```
-Juros (do Passo 1) = ___ M   ← copiar de dre.Juros
-D     (do Passo 1) = ___ M   ← copiar de balanco.D
-Kd_pre = ___ / ___ = ____%
-
-Rf (do Item 2.1)   = ____%
-Kd_pre > Rf?       → SIM | NÃO
+Rf = ____%   (do item 2.1)
+Kd_pre (___%) > Rf (___%) ?   →   SIM | NÃO
 ```
 
-**Verificações:**
+**SE Kd_pre < Rf → BLOQUEADOR. Não avançar ao Passo 3.**
+
+Verificar nesta ordem antes de aceitar:
+1. O campo `Juros` inclui apenas juros sobre dívida financeira? (excluir variação cambial, multas, hedge)
+2. O campo `D` inclui dívida completa (curto + longo prazo)?
+3. Os dois valores estão em MILHÕES (mesma unidade)?
+4. Se após correção ainda Kd_pre < Rf: registrar o alerta, apresentar ao usuário e aguardar confirmação antes de avançar.
+
+**Alternativa se `Juros` não estiver disponível no passo1:**
+- Usar `Valuation/data/ratings.md`: calcular índice de cobertura `EBIT_0 / Juros`
+- Localizar o rating sintético e spread correspondente
+- `Kd_pre = Rf + spread`
 
 ```
-SE Kd_pre < Rf:
-  → BLOQUEADOR — não avançar para o Passo 3.
-    O custo da dívida abaixo da taxa livre de risco é financeiramente impossível
-    em condições normais de mercado.
-  → Verificar OBRIGATORIAMENTE (em ordem):
-    1. Os valores de Juros e D foram copiados corretamente do Passo 1?
-       (Confirmar que ambos estão em MILHÕES — mesma unidade)
-    2. O campo Juros inclui APENAS juros de dívida financeira?
-       (Excluir: variação cambial, multas, juros sobre impostos, resultado de hedge)
-    3. O campo D inclui dívida completa (curto prazo + longo prazo)?
-    4. Se a empresa tem benefício fiscal de dívida subsidiada (ex: BNDES),
-       registrar explicitamente e exigir confirmação do usuário antes de avançar.
-
-SE Kd_pre > Rf + 10%:
-  → Empresa pode estar em situação de stress. Verificar rating de crédito.
-  → Registrar como alerta para o Passo 3 (premissas de falência).
-
-SE D = 0:
-  → Empresa sem dívida. Kd_pre = Rf (convenção). W_debt = 0. WACC = Ke.
-```
-
-**Alternativa se Juros não estiver disponível no Passo 1:**
-
-```
-Opção A: buscar o custo médio ponderado da dívida no release (às vezes divulgado)
-Opção B: usar rating sintético de Damodaran
-  FILE: Verifique na pasta Valuation/data/ratings.md
-  → Calcular índice de cobertura de juros: EBIT / Juros
-  → Localizar o spread correspondente na tabela
-  → Kd_pre = Rf + Spread
-```
-
-**Anotações obrigatórias:**
-```
-Juros_passo1 = ___ M   (de dre.Juros do JSON Passo 1)
-D_passo1     = ___ M   (de balanco.D do JSON Passo 1)
-Kd_pre       = ___ / ___ = ____%
-Método: Juros/D | Rating sintético | Divulgado no release
-Índice de cobertura (EBIT/Juros): _____ × (registrar para referência do Passo 3)
-Kd_pre > Rf? → SIM | NÃO  (se NÃO: ver bloqueador acima)
-Observações: ________________
+Kd_pre = ____%
+Método usado: Juros/D | Rating sintético | Divulgado no release
+Kd_pre > Rf: SIM | NÃO (se NÃO: ver bloqueador acima)
 ```
 
 ---
 
-## ITEM 2.5 — Alíquota Marginal de IR (`IR_marg`)
+## 2.5 — IR_marg (Alíquota Marginal de IR)
 
-**O que é:** alíquota máxima legal de imposto de renda corporativo do país, aplicada ao lucro operacional na maturidade da empresa.
+Esta é a alíquota legal máxima — diferente de `IR_ef` (efetiva atual do passo1).
 
-**Como obter:**
+| País | IR_marg | Composição |
+|---|---|---|
+| Brasil (não-financeiro) | 0,34 | 25% IRPJ + 9% CSLL |
+| Brasil (financeiro) | 0,45 | 25% IRPJ + 20% CSLL |
+| EUA | 0,25 | federal + média estadual |
+| Outros | — | `Valuation/data/country-default-spreads-and-risk-premiums.md`, coluna "Corporate Tax Rate" |
 
 ```
-Não está no release de resultados. Fontes:
-
-Verifique na pasta Valuation/data/country-default-spreads-and-risk-premiums.md Tem uma tabela com a Corporate Tax Rate de cada pais
-
-Brasil:
-  IRPJ = 15% + Adicional de 10% (sobre lucro > R$240k/ano) = 25%
-  CSLL = 9% (empresas em geral) ou 20% (instituições financeiras)
-  IR_marg = 34% (25% IRPJ + 9% CSLL) — padrão para empresas não financeiras brasileiras
-
-EUA:
-  IR_marg = 21% (federal) + média estadual ≈ 25% efetivo
-```
-
-**Atenção:** diferenciar de `IR_ef` (alíquota efetiva atual, extraída do release no Passo 1). `IR_marg` é a alíquota legal que a empresa vai pagar na maturidade, quando todos os benefícios fiscais temporários tiverem se esgotado.
-
-**Anotações obrigatórias:**
-```
-IR_marg = ____%
-País: ________________
-Composição: ________________ (ex: 25% IRPJ + 9% CSLL = 34%)
-Fonte: ________________
+IR_marg = ____   Composição: ________________
 ```
 
 ---
 
-## ITEM 2.6 — WACC Estável na Maturidade (`WACC_est`)
+## 2.6 — WACC_est (WACC na Maturidade)
 
-**O que é:** custo de capital que a empresa terá quando atingir maturidade (após o ano 10). Reflete o risco de uma empresa madura e estável no setor.
-
-**Como calcular (padrão Damodaran):**
+Fórmula padrão Damodaran (empresa madura, beta ≈ 1, sem risco-país adicional):
 
 ```
-WACC_est = Rf + 4,5%
-
-Onde 4,5% é o prêmio de risco médio de uma empresa madura (beta ≈ 1, sem risco-país adicional).
+WACC_est = Rf + 0,045
 ```
 
-**Quando sobrescrever o padrão:**
+Ajustes ao padrão:
+- Setor de alto risco regulatório ou muito cíclico: adicionar +0,5 a +1,5 p.p.
+- Setor de baixo risco (utilities reguladas, concessões): pode reduzir −0,5 p.p.
+- Se o usuário fornecer uma estimativa própria: usar o valor do usuário e registrar justificativa.
+
+**Validação:** `WACC_est > g_perp` (verificar no Passo 3 quando g_perp for definida).
 
 ```
-SE a empresa opera em setor de altíssimo risco regulatório ou cíclico:
-  → Aumentar para Rf + 5,0% a Rf + 6,0%
-
-SE a empresa será adquirida por uma grande corporação diversificada:
-  → Pode-se reduzir para Rf + 3,5%
-
-SE o usuário tiver uma estimativa própria:
-  → Usar o valor fornecido e registrar a justificativa
-```
-
-**Validação obrigatória:**
-
-```
-WACC_est deve ser > g_perp (definida no Passo 3)
-Se WACC_est = 10,8% e g_perp = 4%, o denominador do VT = 6,8% ✓
-Se WACC_est ≤ g_perp, o modelo explode → alertar imediatamente
-```
-
-**Anotações obrigatórias:**
-```
-WACC_est = ____%
-Método: Rf + 4,5% (padrão) | Sobrescrito pelo analista
-Rf utilizado: ____%
-Justificativa (se sobrescrito): ________________
+WACC_est = Rf + 0,045 = ____ + 0,045 = ____
+Método: Rf+4,5% padrão | Ajustado | Fornecido pelo usuário
+Justificativa (se ajustado): ________________
 ```
 
 ---
 
-## OUTPUT DO PASSO 2 — JSON Complementar
-
-Ao final, produza o bloco JSON abaixo com todos os campos preenchidos. Cole ao lado do JSON do Passo 1 — eles serão mesclados no início do Passo 3.
-
-Salvar json em pasta Acoes/:ticker/:passo.json
+## JSON de saída
 
 ```json
 {
   "parametros_mercado": {
     "Rf": {
       "valor": null,
-      "unidade": "decimal (ex: 0.06575)",
-      "fonte": "...",
+      "fonte": "",
       "data_consulta": "YYYY-MM-DD",
-      "moeda": "BRL | USD | EUR | ..."
+      "moeda": "BRL"
     },
     "ERP": {
       "valor": null,
-      "unidade": "decimal",
       "fonte": "Damodaran — Country Risk Premiums",
-      "pais_consultado": "...",
+      "pais_consultado": "",
       "ano_tabela": null
     },
     "Beta_u": {
       "valor": null,
       "fonte": "Damodaran — Betas by Sector Global",
-      "setor_consultado": "...",
-      "coluna": "Unlevered Beta corrected for cash",
+      "setor_consultado": "",
       "ano_tabela": null
     },
     "Kd_pre": {
       "valor": null,
-      "unidade": "decimal",
       "metodo": "Juros/D | Rating sintético | Divulgado",
       "juros_usados": null,
       "D_usada": null
     },
     "IR_marg": {
       "valor": null,
-      "unidade": "decimal (ex: 0.34)",
-      "pais": "...",
-      "composicao": "..."
+      "composicao": ""
     },
     "WACC_est": {
       "valor": null,
-      "unidade": "decimal",
-      "metodo": "Rf + 4.5% padrão | Sobrescrito",
-      "justificativa": "..."
+      "metodo": "Rf+4.5% | Ajustado | Usuário",
+      "justificativa": ""
     }
   },
   "status_passo2": {
@@ -315,21 +178,7 @@ Salvar json em pasta Acoes/:ticker/:passo.json
 }
 ```
 
----
-
-## CHECKLIST DE SAÍDA
-
-Antes de declarar o Passo 2 completo, confirme:
-
-```
-[ ] Rf preenchido com fonte e data de consulta
-[ ] ERP preenchido com fonte Damodaran e ano da tabela
-[ ] Beta_u preenchido com setor correto identificado
-[ ] Kd_pre calculado ou obtido, com método registrado
-[ ] IR_marg definido com composição detalhada
-[ ] WACC_est definido e validado (> g_perp esperado)
-[ ] Nenhum campo nulo no bloco parametros_mercado
-[ ] status_passo2.pronto_para_passo3 = true
-```
-
-Se qualquer item estiver incompleto: registrar em `status_passo2.alertas`, marcar `pronto_para_passo3: false` e solicitar ao usuário antes de avançar.
+**Gate:** `pronto_para_passo3: true` somente quando:
+- Todos os 6 campos preenchidos (sem null)
+- `Kd_pre > Rf` confirmado
+- `status_passo2.campos_nulos = []`

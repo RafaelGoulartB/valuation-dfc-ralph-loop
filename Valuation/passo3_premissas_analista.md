@@ -1,503 +1,310 @@
-# Passo 3 — Definição das Premissas do Analista
+# Passo 3 — Premissas do Analista
 
-> **Pré-requisito:** os JSONs dos Passos 1 e 2 devem estar completos e com `status.pronto_para_passo3: true`. Se não estiverem, volte ao passo anterior.
-
-**Objetivo:** com base nos dados históricos (Passo 1) e parâmetros de mercado (Passo 2) já coletados, definir e justificar cada premissa futura que alimentará o modelo DCF. Ao final, produzir o JSON consolidado final com **todos os inputs** prontos para o Passo 4 executar os cálculos.
-
----
-
-## COMO USAR ESTE DOCUMENTO
-
-Para cada premissa abaixo, a estrutura é sempre:
-
-1. **Referência histórica** — o que os dados do Passo 1 mostram sobre essa variável hoje
-2. **Referência setorial** — o que o setor indica como patamar razoável
-3. **Decisão** — o valor escolhido e a justificativa em uma frase
-4. **Registro no JSON** — onde o valor entra no JSON de saída
-
-O analista (usuário) toma a decisão final. A LLM apresenta as referências, calcula os indicadores de base e aguarda confirmação antes de registrar.
+**Pré-requisito:** `passo1.json` e `passo2.json` completos, ambos com `pronto_para_passoN: true`.  
+**Objetivo:** consolidar todos os inputs e definir as premissas futuras. Produzir `passo3.json` com zero nulos.  
+**Fluxo:** para cada premissa, apresentar âncora histórica + proposta → aguardar confirmação do analista → registrar.
 
 ---
 
-## BLOCO 0 — CONSOLIDAÇÃO E VERIFICAÇÃO DE UNIDADES
+## BLOCO 0 — Consolidação e Verificação de Unidades
 
-> **Execute este bloco COMPLETAMENTE antes de discutir qualquer premissa.**
-> Se qualquer verificação falhar, corrija os dados antes de avançar. Premissas calibradas sobre dados errados são inválidas.
+> **Execute este bloco completamente antes de discutir qualquer premissa.**  
+> Se qualquer verificação falhar: corrigir os dados antes de avançar.
 
-### 0.1 — Copiar dados históricos do Passo 1
+### 0.1 — Copiar dados dos passos anteriores
 
-Transcreva os valores **exatos** do JSON do Passo 1, campo a campo. Todos os valores financeiros devem estar em **MILHÕES (R$ M)** — mesma unidade declarada em `empresa.unidade`.
+Transcrever os valores **exatos** dos JSONs. Não arredondar, não converter, não alterar escala.  
+Todos os valores financeiros em MILHÕES (mesma unidade de `passo1.empresa.unidade`).
 
-| Campo | Valor do JSON Passo 1 | Unidade esperada |
+| Campo | Origem (campo exato no JSON) | Valor |
 |---|---|---|
-| Rev_0 | | R$ milhões |
-| EBIT_0 | | R$ milhões |
-| Juros | | R$ milhões |
-| D | | R$ milhões |
-| Caixa | | R$ milhões |
-| MinInt | | R$ milhões |
-| PL | | R$ milhões |
-| AtvNOp | | R$ milhões |
-| Shares | | Milhões de ações |
-| P | | R$/ação |
-| MktCap | | R$ milhões |
-| IR_ef | | Decimal (ex: 0.28) |
+| Rev_0 | passo1.dre.Rev_0.valor | |
+| EBIT_0 | passo1.dre.EBIT_0.valor | |
+| Dep | passo1.dre.Dep.valor | |
+| Juros | passo1.dre.Juros.valor | |
+| PL | passo1.balanco.PL.valor | |
+| D | passo1.balanco.D.valor | |
+| Caixa | passo1.balanco.Caixa.valor | |
+| AtvNOp | passo1.balanco.AtvNOp.valor | |
+| MinInt | passo1.balanco.MinInt.valor | |
+| Shares | passo1.mercado.Shares.valor | |
+| P | passo1.mercado.P.valor | |
+| MktCap | passo1.mercado.MktCap.valor | |
+| IR_ef | passo1.dre.IR_ef.valor | |
+| Rf | passo2.parametros_mercado.Rf.valor | |
+| ERP | passo2.parametros_mercado.ERP.valor | |
+| Beta_u | passo2.parametros_mercado.Beta_u.valor | |
+| Kd_pre | passo2.parametros_mercado.Kd_pre.valor | |
+| IR_marg | passo2.parametros_mercado.IR_marg.valor | |
+| WACC_est | passo2.parametros_mercado.WACC_est.valor | |
 
-### 0.2 — Copiar parâmetros de mercado do Passo 2
+### 0.2 — Verificações cruzadas (todas devem passar antes de avançar)
 
-| Campo | Valor do JSON Passo 2 | Unidade esperada |
-|---|---|---|
-| Rf | | Decimal |
-| ERP | | Decimal |
-| Beta_u | | Número |
-| Kd_pre | | Decimal |
-| IR_marg | | Decimal |
-| WACC_est | | Decimal |
-
-### 0.3 — Verificações cruzadas de integridade (TODAS devem passar antes de avançar)
+Calcular cada item e registrar o resultado:
 
 ```
-[ ] A. MktCap_calc = P × Shares = ___ × ___ = ___ M
-        MktCap do Passo 1 = ___ M
-        Diferença: ___% → deve ser < 5%
-        Resultado: OK | FALHOU (se falhou: verificar Shares — total vs. circulante)
+A. MktCap_calc = P × Shares = ___ × ___ = ___ M
+   MktCap do passo1 = ___ M
+   Diferença: abs(MktCap_calc − MktCap_p1) / MktCap_p1 = ___%
+   → OK se < 5%. Se >= 5%: verificar Shares (ex-tesouraria?) e P (data correta?)
+   Resultado: OK | FALHOU
 
-[ ] B. D_liq_calc = D − Caixa = ___ − ___ = ___ M
-        D_liq do Passo 1 = ___ M
-        Diferença: ___% → deve ser < 2%
-        Resultado: OK | FALHOU
+B. D_liq_calc = D − Caixa = ___ − ___ = ___ M
+   D_liq do passo1 = ___ M
+   Diferença: ___%
+   → OK se < 2%. Se >= 2%: verificar componentes de D e Caixa
+   Resultado: OK | FALHOU
 
-[ ] C. Kd_pre_calc = Juros / D = ___ / ___ = ____%
-        Kd_pre do Passo 2 = ____%
-        São iguais (diferença < 0,1%)? → OK | DIVERGÊNCIA
-        (Se divergirem: usar o Passo 2 como referência e registrar o motivo)
+C. Kd_pre (___%) vs Rf (___%)
+   Kd_pre > Rf?
+   → Se NÃO: BLOQUEADOR — não avançar. Ver Passo 2, item 2.4.
+   Resultado: OK | BLOQUEADOR
 
-[ ] D. Kd_pre (___%) > Rf (___%)
-        Resultado: OK | BLOQUEADOR
-        (Se Kd_pre < Rf: não avançar — ver Item 2.4 do Passo 2)
+D. Ratio de escala: MktCap_calc / Rev_0 = ___ / ___ = ___×
+   → OK se entre 0,3× e 15×
+   → Se > 20×: PARAR — erro de unidade em Rev_0 ou D ou Caixa. Identificar e corrigir antes de continuar.
+   Resultado: OK (___×) | ALERTA
 
-[ ] E. Ratio de escala: MktCap / Rev_0 = ___ / ___ = ___×
-        Referência: entre 0,3× e 15× é normal para a maioria dos setores.
-        Se > 20×: PARAR — provável erro de unidade em Rev_0 ou outros dados.
-        Resultado: OK (___×) | ALERTA (___× — verificar unidade de Rev_0)
-
-[ ] F. D / MktCap = ___ / ___ = ___%
-        Se D > 0 e D/MktCap < 1%: PARAR — provável erro de unidade em D.
-        Resultado: OK (__%) | ALERTA (< 1% — verificar unidade de D)
+E. Se D > 0: D / MktCap_calc = ___ / ___ = ___%
+   → Se < 1%: PARAR — provável erro de unidade em D.
+   Resultado: OK (__%) | ALERTA
 ```
 
 ---
 
-## PREMISSA 3.1 — Crescimento de Receita no Ano 1 (`g1`)
+## PREMISSA 3.1 — g1 (Crescimento de Receita no Ano 1)
 
-**Referência histórica (do Passo 1):**
-```
-g_recente = Rev_0 / Rev_anterior − 1  →  ____% (calculado no Passo 1)
-Crescimento divulgado no próprio release: ____%
-Guidance da empresa (se mencionado no release): ____
-```
+**Âncora:** `g_recente = ____%` (de passo1.operacional.g_recente)
 
-**Perguntas de calibração:**
-```
-1. O crescimento recente é sustentável ou foi pontual (ex: aquisição, efeito base)?
-2. A empresa deu guidance explícito para o próximo exercício no release?
-3. Há fatores conhecidos que acelerarão ou desacelerarão o crescimento no ano 1
-   (novo produto, expansão geográfica, perda de contrato, retração macro)?
-```
+Verificar no release:
+- A empresa divulgou guidance de crescimento para o próximo exercício? → usar como referência primária
+- O crescimento recente foi impulsionado por aquisição ou efeito de base? → ajustar para baixo se sim
 
-**Decisão:**
+**Restrição:** `g1 ≤ min(g_recente × 2, 50%)`. Crescimento mais que o dobro do recente exige justificativa explícita do analista.
+
 ```
-g1 = ____%
-Justificativa: ________________
+g1 = ____%   Justificativa: ________________
 ```
 
 ---
 
-## PREMISSA 3.2 — Crescimento de Receita Anos 2 a 5 (`g2_5`)
+## PREMISSA 3.2 — g2_5 (Crescimento Anos 2 a 5)
 
-**Referência histórica (do Passo 1):**
-```
-CAGR de receita dos últimos 3–5 anos (se disponível no release): ____%
-g_recente = ____%  (referência de curto prazo)
-```
+**Âncora:** CAGR histórico disponível no release (últimos 3–5 anos)  
+**Referência setorial:** Damodaran Industry Averages — coluna "Revenue Growth (last 5 years)" do setor
 
-**Referência setorial:**
-```
-Taxa de crescimento médio do setor (Damodaran — Industry Averages):
-  Setor: ________________
-  "Annual Average Revenue Growth — Last 5 Years": ____%
+Regra de calibração:
+- Se a empresa cresce consistentemente acima do setor: g2_5 pode ser até setor + 3pp (com justificativa de vantagem competitiva)
+- Default conservador: g2_5 = g_recente com decaimento suave até g_perp
 
-Posição competitiva da empresa:
-  → Se empresa cresce acima da média do setor: justificar ganho de market share
-  → Se cresce abaixo: justificar perda ou segmento maduro
-```
+**Restrição:** `g2_5 ≥ g_perp`
 
-**Perguntas de calibração:**
 ```
-1. A empresa tem capacidade instalada para crescer nessa taxa (CAPEX do Passo 1)?
-2. O mercado endereçável ainda tem espaço suficiente?
-3. A receita do Ano 10 implícita (Rev_0 × (1+g2_5)^5 × ...) é crível para o setor?
-```
-
-**Cálculo de referência rápida:**
-```
-Receita projetada Ano 5 = Rev_0 × (1 + g1) × (1 + g2_5)^4
-Receita projetada Ano 5 = ____ × ____ × ____^4 = ____ M
-→ Representaria ____% do mercado total estimado. Faz sentido?
-```
-
-**Decisão:**
-```
-g2_5 = ____%
-Justificativa: ________________
+g2_5 = ____%   Justificativa: ________________
 ```
 
 ---
 
-## PREMISSA 3.3 — Margem EBIT no Ano 1 (`Mg_1`)
+## PREMISSA 3.3 — Mg_1 (Margem EBIT no Ano 1)
 
-**Referência histórica (do Passo 1):**
-```
-Mg_atual = EBIT_0 / Rev_0 = ____%
-```
+**Âncora:** `Mg_atual = EBIT_0 / Rev_0 = ___ / ___ = ____%` (de passo1.dre.Mg_atual)
 
-**Perguntas de calibração:**
-```
-1. A margem atual está acima ou abaixo da margem histórica da empresa?
-2. Há pressões de custo conhecidas para o próximo ano (inflação salarial, energia, insumos)?
-3. Há programas de eficiência ou reestruturação que impactarão a margem?
-4. A margem atual inclui itens não recorrentes que devem ser excluídos?
-```
+Ajustes a Mg_atual:
+- Se há pressões de custo conhecidas para o próximo período (inflação salarial, insumos): reduzir levemente
+- Se há programa de eficiência ou alavancagem operacional esperada: pode aumentar levemente
+- Default: `Mg_1 = Mg_atual` (sem ajuste se não há razão clara)
 
-**Nota:** `Mg_1` costuma ser próxima de `Mg_atual`, a menos que haja razão clara para divergir.
-
-**Decisão:**
 ```
-Mg_1 = ____%
-Justificativa: ________________
+Mg_1 = ____%   Justificativa: ________________
 ```
 
 ---
 
-## PREMISSA 3.4 — Margem EBIT Alvo na Maturidade (`Mg_alvo`)
+## PREMISSA 3.4 — Mg_alvo (Margem EBIT na Maturidade)
 
-**Referência setorial:**
-```
-Fonte: Damodaran — Industry Averages (Global)
-Setor: ________________
-"Pre-tax Operating Margin (Unadjusted)": ____%
+**Âncora setorial:** Damodaran Industry Averages, coluna "Pre-tax Operating Margin" do setor  
+**Referência de benchmark:** margem da melhor empresa comparável do setor (se conhecida)
 
-Melhor empresa comparável do setor (benchmark):
-  Empresa: ________________
-  Margem EBIT: ____%
-```
+Regra de calibração:
+- Se a empresa tem vantagens competitivas duráveis (pricing power, switching costs, escala): Mg_alvo pode ser acima da mediana setorial
+- Se o setor tem pressão estrutural de margem: usar mediana ou abaixo
+- Mg_alvo deve estar entre Mg_1 (improvável que margem alvo seja abaixo da atual) e melhor peer
 
-**Perguntas de calibração:**
+**Validação obrigatória de criação de valor:**
 ```
-1. A empresa tem vantagens competitivas duráveis que justificam margem acima da mediana?
-   (ex: pricing power, switching costs, economias de escala)
-2. Há tendências estruturais de compressão de margem no setor?
-3. A margem alvo implica ROIC > WACC? (necessário para criação de valor)
-   → ROIC_alvo = Mg_alvo × StC  →  deve ser > WACC_0
+ROIC_term = Mg_alvo × (1 − IR_marg) × StC
+          = ___ × (1 − ___) × ___ = ___
+WACC_est  = ___
+ROIC_term > WACC_est?  →  SIM (cria valor) | NÃO (destrói valor — revisar Mg_alvo ou StC)
 ```
+*(StC ainda não definido — calcular após definir 3.6. Voltar e validar.)*
 
-**Validação rápida:**
 ```
-ROIC_implícito = Mg_alvo × StC = ____% × ____ = ____%
-WACC_0 = ____%  (do Passo 2)
-Criação de valor? ROIC > WACC → ____
-```
-
-**Decisão:**
-```
-Mg_alvo = ____%
-Justificativa: ________________
+Mg_alvo = ____%   Justificativa: ________________
 ```
 
 ---
 
-## PREMISSA 3.5 — Ano de Convergência da Margem (`Ano_conv`)
+## PREMISSA 3.5 — Ano_conv (Ano de Convergência da Margem)
 
-**Lógica:**
-```
-Define em qual ano a margem EBIT atinge Mg_alvo, partindo de Mg_1 no Ano 1.
-A convergência é linear entre Ano 1 e Ano_conv.
-```
+Define até qual ano a margem EBIT converge linearmente de Mg_1 para Mg_alvo.
 
-**Referências para decidir:**
-```
-Ano_conv = 3 → empresa já próxima da maturidade, melhorias rápidas esperadas
-Ano_conv = 5 → padrão Damodaran para a maioria das empresas (USAR COMO DEFAULT)
-Ano_conv = 7 → empresa ainda em fase de crescimento, eficiência virá mais tarde
-Ano_conv = 1 → margem já está no alvo desde o início (Mg_1 = Mg_alvo)
-```
+| Valor | Quando usar |
+|---|---|
+| 1 | Margem já está no alvo (Mg_1 = Mg_alvo) |
+| 3 | Empresa próxima da maturidade, melhoria rápida |
+| 5 | Default — maioria das empresas |
+| 7–10 | Empresa em expansão intensa, eficiência vem tarde |
 
-**Restrição:** `Ano_conv` deve ser entre 1 e 10.
+**Restrição:** `Ano_conv ∈ [1, 10]`
 
-**Decisão:**
 ```
-Ano_conv = ____
-Justificativa: ________________
+Ano_conv = ____   Justificativa: ________________
 ```
 
 ---
 
-## PREMISSA 3.6 — Sales-to-Capital Ratio (`StC`)
+## PREMISSA 3.6 — StC (Sales-to-Capital Ratio)
 
-**O que é:** quantos reais de receita a empresa gera para cada real de capital investido. Mede a eficiência do crescimento.
+**Âncora histórica:** `StC_hist = Rev_0 / CI = ___ / ___ = ___` (de passo1.operacional.StC_hist)  
+**Referência setorial:** Damodaran Industry Averages, coluna "Sales/Capital"
 
-**Referência histórica (calculada com dados do Passo 1):**
-```
-StC_histórico = Rev_0 / CI
-CI = PL + D − Caixa = ____ + ____ − ____ = ____ M
-StC_histórico = Rev_0 / CI = ____ / ____ = ____
-```
+Regra de calibração:
+- Se `StC_hist` é próximo da mediana setorial: usar StC_hist como default
+- Se `StC_hist` é muito diferente do setor: investigar (aquisição recente? desinvestimento?)
+- Um StC alto significa crescimento barato (menos capital por real de receita) — verificar se sustentável
 
-**Referência setorial:**
+**Revalidar criação de valor após definir StC:**
 ```
-Fonte: Damodaran — Industry Averages (Global)
-Setor: ________________
-Coluna "Sales/Capital": ____
-```
-
-**Perguntas de calibração:**
-```
-1. O StC histórico é representativo ou foi distorcido por algum evento (desinvestimento, aquisição)?
-2. Empresas do setor têm StC crescente ou decrescente à medida que escalam?
-3. Um StC maior que o setor implica crescimento mais barato — há evidência que suporte isso?
+ROIC_term = Mg_alvo × (1 − IR_marg) × StC = ___ × (1 − ___) × ___ = ___
+WACC_est  = ___
+Resultado: ROIC_term > WACC_est →  OK | Revisar Mg_alvo ou StC
 ```
 
-**Nota:** use o mesmo StC para os anos 1–10 (simplificação padrão do modelo). Só diferencie anos 1–5 e 6–10 se houver razão clara (ex: empresa em expansão intensa nos primeiros anos).
-
-**Decisão:**
 ```
-StC = ____
-Justificativa: ________________
+StC = ____   Justificativa: ________________
 ```
 
 ---
 
-## PREMISSA 3.7 — Taxa de Crescimento na Perpetuidade (`g_perp`)
+## PREMISSA 3.7 — g_perp (Crescimento na Perpetuidade)
 
-**O que é:** taxa à qual os fluxos de caixa crescerão para sempre após o Ano 10.
+**Restrição absoluta:** `g_perp < Rf`. Se `g_perp ≥ Rf`, o modelo explode (valor infinito). Não aceitar.
 
-**Restrição absoluta:** `g_perp ≤ Rf`
+Referências:
+- Brasil: inflação de longo prazo (~4%) + crescimento real do PIB (~1–2%) → g_perp entre 4% e 6%
+- EUA: ~2% a 3%
+- Setor em declínio estrutural: g_perp pode ser 0% ou negativo
 
-```
-Rf = ____%  (do Passo 2)
-Logo: g_perp ≤ ____%
-```
-
-**Referências:**
-```
-Inflação de longo prazo do país: ____%
-Crescimento real esperado do PIB de longo prazo: ____%
-g_perp típico = inflação + crescimento real = ____%
-
-Para o Brasil: g_perp entre 4% e 6% tem sido usual (inflação meta + crescimento modesto)
-Para o EUA: g_perp entre 2% e 3%
-```
-
-**Perguntas de calibração:**
-```
-1. A empresa opera em setor com tendência de declínio (g_perp pode ser negativo)?
-2. A empresa tem capacidade de crescer acima da economia no longo prazo?
-   → Se sim, quanto acima? Justificar.
-3. g_perp > Rf faz o modelo explodir — confirmar que a escolha está dentro do limite.
-```
-
-**Decisão:**
+**Validação:**
 ```
 g_perp = ____%
-Validação: g_perp (____%) ≤ Rf (____%) → OK | VIOLAÇÃO
-Justificativa: ________________
+Rf     = ____%
+g_perp < Rf?  →  OK | VIOLAÇÃO (não aceitar — reduzir g_perp)
+
+WACC_est (___%) > g_perp (___%)?  →  OK | VIOLAÇÃO
+```
+
+```
+g_perp = ____%   Justificativa: ________________
 ```
 
 ---
 
-## PREMISSA 3.8 — Probabilidade de Falência (`P_fail`) e Recuperação (`V_fail`)
+## PREMISSA 3.8 — P_fail e V_fail (Ajuste de Falência)
 
-**Quando usar P_fail > 0:**
-```
-→ Empresa com rating de crédito abaixo de BB
-→ Empresa com dívida líquida > 5× EBITDA
-→ Empresa com fluxo de caixa operacional negativo nos últimos 2+ anos
-→ Empresa em setor com disrupção tecnológica iminente
-```
+Para a maioria das empresas: `P_fail = 0` e `V_fail = 0`. Avançar se for o caso.
 
-**Como estimar (se aplicável):**
-```
-Fonte: tabela de probabilidade de default por rating (Damodaran)
-URL: https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ratings.html
+Usar P_fail > 0 se pelo menos um dos seguintes:
+- `D / EBITDA_0 > 5×` → calcular: ___ / ___ = ___× → `P_fail = 0` | considerar
+- FCO negativo por 2+ anos consecutivos
+- Rating implícito < BB (calcular cobertura: `EBIT_0 / Juros = ___ / ___ = ___×`)
 
-Índice de cobertura de juros = EBIT_0 / Juros = ____ / ____ = ____×
-Rating sintético implícito: ________________
-Probabilidade de default em 10 anos (tabela): ____%
-```
+Se aplicável:
+1. Consultar `Valuation/data/ratings.md` com o índice de cobertura EBIT/Juros
+2. Identificar rating sintético
+3. Localizar probabilidade de default em 10 anos (tabela Damodaran)
+4. `V_fail` = fração do valor recuperado em liquidação (tipicamente 0,20 a 0,50)
 
-**Para a maioria das empresas:**
 ```
-P_fail = 0
-V_fail = 0
-→ Registrar e avançar sem mais cálculos nesta seção
-```
-
-**Decisão:**
-```
-P_fail = ____ (decimal, ex: 0.12 para 12%)
-V_fail = ____ (decimal, ex: 0.50 para 50% do valor recuperado)
-Referência usada: ________________
+D / EBITDA_0 = ___ / ___ = ___×   (EBITDA_0 = passo1.dre.EBITDA.valor)
+EBIT_0 / Juros = ___ / ___ = ___×  (cobertura de juros)
+P_fail = ____   V_fail = ____   Justificativa: ________________
 ```
 
 ---
 
-## PREMISSA 3.9 — Opções de Funcionários (`N_opt`, `K_opt`, `T_opt`, `Sigma`)
+## PREMISSA 3.9 — Opções de Funcionários
 
-**Quando usar:**
-```
-→ Apenas se o release mencionar opções de funcionários em aberto (stock options, SARs)
-→ Verificar nas notas explicativas do release: "Plano de opções", "Stock Option Plan"
-```
+Verificar no release: há menção de "Plano de Opções", "Stock Options", "SARs" em aberto?
+- **Não há:** `N_opt = 0, K_opt = 0, T_opt = 0, Sigma = 0` → avançar
+- **Há opções:** coletar do release ou solicitar ao usuário:
+  - `N_opt` = total de opções em aberto (em milhões de ações)
+  - `K_opt` = preço médio de exercício (em R$)
+  - `T_opt` = prazo médio até o vencimento (em anos)
+  - `Sigma` = volatilidade anualizada do preço da ação (se não disponível: buscar no Damodaran "Std deviation in stock prices" do setor)
 
-**Se não há opções:**
-```
-N_opt = 0  →  Valor_opcoes = 0  →  avançar
-```
+---
 
-**Se há opções (coletar do release ou solicitar ao usuário):**
-```
-N_opt  = número total de opções em aberto (em milhões de ações)
-K_opt  = preço médio de exercício (mesma moeda do modelo)
-T_opt  = prazo médio até o vencimento (em anos)
-Sigma  = desvio padrão anualizado do preço da ação (histórico — geralmente 30–60%)
-         Se não disponível: usar Sigma do setor (Damodaran: "Std deviation in stock prices")
-```
+## Checklist de Saída
 
-**Decisão:**
 ```
-N_opt  = ____ M opções
-K_opt  = ____
-T_opt  = ____ anos
-Sigma  = ____
+[ ] Bloco 0 completo — verificações A, B, C, D, E passaram
+[ ] g_perp < Rf
+[ ] WACC_est > g_perp
+[ ] ROIC_term = Mg_alvo × (1 − IR_marg) × StC > WACC_est  (ou alerta registrado)
+[ ] g1 ≤ g_recente × 2  (ou justificativa registrada)
+[ ] g2_5 ≥ g_perp
+[ ] Ano_conv ∈ [1, 10]
+[ ] P_fail ∈ [0, 1]
+[ ] campos_nulos_restantes = []
+[ ] pronto_para_passo4: true
 ```
 
 ---
 
-## CHECKLIST DE CONSISTÊNCIA ENTRE PREMISSAS
-
-Antes de produzir o JSON final, execute estas verificações:
-
-**Integridade dos dados (Bloco 0):**
-```
-[ ] Bloco 0 executado e todas as verificações A–F passaram
-[ ] Nenhum valor de dados_historicos foi alterado em relação ao Passo 1
-[ ] Nenhum valor de parametros_custo_capital foi alterado em relação ao Passo 2
-[ ] Kd_pre > Rf confirmado               → OK | VIOLAÇÃO
-```
-
-**Consistência entre premissas:**
-```
-[ ] g_perp ≤ Rf                          → OK | VIOLAÇÃO
-[ ] WACC_est > g_perp                     → OK | VIOLAÇÃO
-[ ] Mg_alvo × StC > WACC_0               → cria valor | destrói valor (alertar)
-[ ] g1 e g2_5 são consistentes com g_recente (não mais que 2× ou metade sem justificativa)
-[ ] Receita projetada no Ano 10 é crível para o tamanho do mercado
-[ ] Ano_conv entre 1 e 10                 → OK | FORA DO RANGE
-[ ] P_fail entre 0 e 1                    → OK | FORA DO RANGE
-```
-
-**Cálculo de referência obrigatório:**
-```
-Receita projetada Ano 10 = Rev_0 × (1+g1) × (1+g2_5)^4 × produto de g(t) t=6..10
-Estimativa rápida (assumindo g2_5 até ano 5, g_perp a partir do 6):
-  Rev_Ano5  ≈ ___ × (1+g1) × (1+g2_5)^4 = ___ M
-  Rev_Ano10 ≈ ___ M (aplicar decaimento linear até g_perp)
-Faz sentido para o mercado endereçável da empresa? → SIM | REVISAR
-```
-
----
-
-## OUTPUT DO PASSO 3 — JSON Consolidado Final
-
-Produza o JSON abaixo **completamente preenchido** (zero nulos). Este é o input direto do Passo 4.
-
-Salvar json em pasta Acoes/:ticker/:passo.json
+## JSON de Saída
 
 ```json
 {
   "empresa": {
-    "nome": "...",
-    "ticker": "...",
-    "pais": "...",
-    "setor": "...",
-    "moeda": "...",
-    "unidade": "milhões"
+    "nome": "", "ticker": "", "pais": "", "setor": "", "moeda": "BRL", "unidade": "milhões"
   },
-  "_INSTRUCAO_UNIDADE": "Todos os valores em dados_historicos e dados_mercado devem estar em MILHOES (R$ M). Copiar exatamente do Passo 1. Nao converter, nao arredondar, nao mudar escala.",
   "dados_historicos": {
-    "Rev_0":    null,
-    "EBIT_0":   null,
-    "Dep":      null,
-    "Juros":    null,
-    "PL":       null,
-    "D":        null,
-    "Caixa":    null,
-    "AtvNOp":   null,
-    "MinInt":   null
+    "Rev_0": null, "EBIT_0": null, "Dep": null, "Juros": null,
+    "PL": null, "D": null, "Caixa": null, "AtvNOp": null, "MinInt": null
   },
   "dados_mercado": {
-    "P":        null,
-    "Shares":   null,
-    "MktCap":   null,
-    "IR_ef":    null
+    "P": null, "Shares": null, "MktCap": null, "IR_ef": null
   },
   "parametros_custo_capital": {
-    "Rf":       null,
-    "ERP":      null,
-    "Beta_u":   null,
-    "Kd_pre":   null,
-    "IR_marg":  null,
-    "WACC_est": null
+    "Rf": null, "ERP": null, "Beta_u": null,
+    "Kd_pre": null, "IR_marg": null, "WACC_est": null
   },
   "premissas_analiticas": {
-    "g1":       null,
-    "g2_5":     null,
-    "Mg_1":     null,
-    "Mg_alvo":  null,
-    "Ano_conv": null,
-    "StC":      null,
-    "g_perp":   null,
-    "P_fail":   null,
-    "V_fail":   null
+    "g1": null, "g2_5": null, "Mg_1": null, "Mg_alvo": null,
+    "Ano_conv": null, "StC": null, "g_perp": null, "P_fail": null, "V_fail": null
   },
   "opcoes_funcionarios": {
-    "N_opt":    0,
-    "K_opt":    0,
-    "T_opt":    0,
-    "Sigma":    0
+    "N_opt": 0, "K_opt": 0, "T_opt": 0, "Sigma": 0
   },
   "narrativa_premissas": {
-    "crescimento": "...",
-    "margem":      "...",
-    "risco":       "...",
-    "perpetuidade":"..."
+    "crescimento": "",
+    "margem": "",
+    "risco": "",
+    "perpetuidade": ""
   },
   "validacoes": {
-    "bloco0_MktCap_vs_PxShares": null,
-    "bloco0_D_liq_consistente":  null,
-    "bloco0_Kd_pre_maior_Rf":    null,
-    "bloco0_escala_MktCap_Rev":  null,
-    "bloco0_D_MktCap_ratio":     null,
-    "g_perp_menor_Rf":           null,
-    "WACC_est_maior_g_perp":     null,
-    "ROIC_alvo_maior_WACC":      null,
-    "receita_ano10_crivel":      null,
-    "campos_nulos_restantes":    [],
-    "pronto_para_passo4":        false
+    "bloco0_MktCap_PxShares": null,
+    "bloco0_D_liq": null,
+    "bloco0_Kd_pre_Rf": null,
+    "bloco0_escala": null,
+    "bloco0_D_MktCap": null,
+    "g_perp_menor_Rf": null,
+    "WACC_est_maior_g_perp": null,
+    "ROIC_alvo_maior_WACC": null,
+    "campos_nulos_restantes": [],
+    "pronto_para_passo4": false
   }
 }
 ```
-
-Preencha o campo `narrativa_premissas` com uma frase por bloco explicando a lógica do analista. Esse bloco acompanhará o relatório final.
-
-Só marque `pronto_para_passo4: true` quando `campos_nulos_restantes` for uma lista vazia e todas as validações forem `true`.
