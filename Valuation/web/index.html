@@ -451,6 +451,70 @@
     .save-btn   { background: var(--green); color: #000; font-weight: 600; }
     .cancel-btn { background: var(--surface2); color: var(--muted); }
 
+    /* ── Passo 5 ──────────────────────────────────────────────────── */
+    .cenarios-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 600px) { .cenarios-grid { grid-template-columns: 1fr; } }
+    .cenario-card {
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .cenario-card.bear   { background: rgba(248,81,73,0.07);  border-color: rgba(248,81,73,0.3); }
+    .cenario-card.base   { background: rgba(88,166,255,0.07); border-color: rgba(88,166,255,0.3); }
+    .cenario-card.bull   { background: rgba(63,185,80,0.07);  border-color: rgba(63,185,80,0.3); }
+    .cenario-name  { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .cenario-card.bear .cenario-name  { color: var(--red); }
+    .cenario-card.base .cenario-name  { color: var(--blue); }
+    .cenario-card.bull .cenario-name  { color: var(--green); }
+    .cenario-val   { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
+    .cenario-card.bear .cenario-val   { color: var(--red); }
+    .cenario-card.base .cenario-val   { color: var(--blue); }
+    .cenario-card.bull .cenario-val   { color: var(--green); }
+    .cenario-vs    { font-size: 12px; color: var(--muted); }
+    .cenario-diff  { font-size: 13px; font-weight: 600; margin-top: 4px; }
+
+    .breakeven-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .breakeven-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+    }
+    .breakeven-card.highlight {
+      border-color: var(--yellow);
+      background: rgba(210,153,34,0.08);
+    }
+    .breakeven-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .breakeven-val   { font-size: 20px; font-weight: 700; color: var(--blue); }
+    .breakeven-card.highlight .breakeven-val { color: var(--yellow); }
+    .breakeven-badge { font-size: 10px; color: var(--yellow); font-weight: 600; margin-top: 4px; }
+
+    .conclusao-box {
+      background: var(--surface2);
+      border-left: 3px solid var(--blue);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 14px 18px;
+    }
+    .conclusao-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(48,54,61,0.4);
+      font-size: 13px; line-height: 1.6; color: var(--muted);
+    }
+    .conclusao-item:last-child { border-bottom: none; }
+    .conclusao-num { color: var(--blue); font-weight: 700; flex-shrink: 0; }
+
     /* ── Passo 5 pending ──────────────────────────────────────────── */
     .pending-box {
       text-align: center;
@@ -472,6 +536,20 @@
     .tag-warn { background: rgba(210,153,34,0.12); color: var(--yellow); }
 
     .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+    /* ── Botão Recalcular DCF ─────────────────────────────────────── */
+    .run-btn-row { margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+    .run-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--blue); color: #0d1117;
+      border: none; border-radius: var(--radius);
+      padding: 8px 18px; font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    .run-btn:hover:not(:disabled) { opacity: 0.85; }
+    .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .run-status { font-size: 12px; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -573,10 +651,10 @@ async function renderList() {
     return;
   }
 
-  // Carrega passo1 + passo4 de cada ticker em paralelo
+  // Carrega todos os 5 passos de cada ticker em paralelo
   const cards = await Promise.all(tickers.map(async t => {
-    const [p1, p4] = await Promise.all([fetchPasso(t, 1), fetchPasso(t, 4)]);
-    return { ticker: t, p1, p4 };
+    const passos = await Promise.all([1,2,3,4,5].map(n => fetchPasso(t, n)));
+    return { ticker: t, passos };
   }));
 
   const frag = document.createDocumentFragment();
@@ -585,8 +663,8 @@ async function renderList() {
   frag.appendChild(header);
 
   const grid = el('div', 'ticker-grid');
-  for (const { ticker, p1, p4 } of cards) {
-    grid.appendChild(buildCard(ticker, p1, p4));
+  for (const { ticker, passos } of cards) {
+    grid.appendChild(buildCard(ticker, passos));
   }
   frag.appendChild(grid);
 
@@ -594,11 +672,12 @@ async function renderList() {
   app().appendChild(frag);
 }
 
-function buildCard(ticker, p1, p4) {
+function buildCard(ticker, passos) {
+  const [p1, p2, p3, p4, p5] = passos;
   const nome   = p1?.empresa?.nome   || ticker;
   const setor  = p1?.empresa?.setor  || '—';
   const pais   = p1?.empresa?.pais   || '';
-  const precoM = p1?.mercado?.P?.valor;
+  const precoM = p1?.mercado?.P?.valor ?? p4?.bloco_f?.P;
   const introV = p4?.bloco_f?.Valor_acao;
 
   let pct = null, cls = 'neutral', label = 'Sem valuation';
@@ -609,8 +688,10 @@ function buildCard(ticker, p1, p4) {
     else                  { cls = 'neutral';  label = 'Justo'; }
   }
 
-  // conta passos existentes
-  const passosDone = [p1, null, null, p4, null].map((v, i) => v !== null ? i : -1).filter(x => x >= 0);
+  const done = passos.filter(Boolean).length;
+  const stepsHtml = passos.map((p, i) =>
+    `<div class="pipeline-step ${p ? 'done' : ''}"></div>`
+  ).join('');
 
   const a = el('a', 'ticker-card');
   a.href = '#' + ticker;
@@ -631,8 +712,8 @@ function buildCard(ticker, p1, p4) {
         <div class="price-value intrinsic">${introV != null ? fBRL(introV) : '—'}</div>
       </div>
     </div>
-    <div class="pipeline-steps">${[1,2,3,4,5].map(n => `<div class="pipeline-step ${p1 && n===1 || p4 && n===4 ? 'done' : ''}"></div>`).join('')}</div>
-    <div class="pipeline-label">Pipeline: ${[p1,null,null,p4,null].filter(Boolean).length}/5 passos concluídos</div>
+    <div class="pipeline-steps">${stepsHtml}</div>
+    <div class="pipeline-label">Pipeline: ${done}/5 passos concluídos</div>
   `;
   return a;
 }
@@ -681,7 +762,7 @@ function buildHero(ticker, p1, p4) {
   const nome   = p1?.empresa?.nome   || ticker;
   const setor  = p1?.empresa?.setor  || '';
   const pais   = p1?.empresa?.pais   || '';
-  const precoM = p4?.bloco_f?.P ?? p1?.mercado?.P?.valor;
+  const precoM = p1?.mercado?.P?.valor ?? p4?.bloco_f?.P;
   const introV = p4?.bloco_f?.Valor_acao;
 
   let pct = null, cls = '', verdade = '—';
@@ -739,6 +820,7 @@ function buildAccItem({ n, title, data, fn, open }) {
   };
 
   const body = el('div', 'acc-body');
+  body.dataset.passoBody = n;
   if (done) {
     try { fn(body, data, n); }
     catch (e) { body.innerHTML = `<div class="empty">Erro ao renderizar: ${e.message}</div>`; }
@@ -822,9 +904,9 @@ function renderP1(container, d, passoN) {
     ['CAPEX',           d.operacional?.CAPEX,    'operacional.CAPEX.valor',   'number', v => fM(v) + 'M'],
   ];
 
-  fillTable(document.getElementById('p1-dre'), dreRows, PASSO);
-  fillTable(document.getElementById('p1-bal'), balRows, PASSO);
-  fillTable(document.getElementById('p1-mkt'), mktRows, PASSO);
+  fillTable(container.querySelector('#p1-dre'), dreRows, PASSO);
+  fillTable(container.querySelector('#p1-bal'), balRows, PASSO);
+  fillTable(container.querySelector('#p1-mkt'), mktRows, PASSO);
 }
 
 function fillTable(tbody, rows, passoN) {
@@ -880,7 +962,7 @@ function renderP2(container, d, passoN) {
     </div>
   `;
 
-  const tbody = document.getElementById('p2-tab');
+  const tbody = container.querySelector('#p2-tab');
   for (const [label, obj, path, type, fmt] of rows) {
     const val = obj?.valor ?? obj;
     if (val == null) continue;
@@ -919,7 +1001,7 @@ function renderP3(container, d, passoN) {
 
   container.innerHTML = `<div class="premissas-grid" id="p3-cards"></div>`;
 
-  const grid = document.getElementById('p3-cards');
+  const grid = container.querySelector('#p3-cards');
   for (const [label, rawVal, path, type, fmt] of premCards) {
     if (rawVal == null) continue;
     const card = el('div', 'premissa-card');
@@ -970,6 +1052,37 @@ function renderP3(container, d, passoN) {
   }
 }
 
+// ─── Recalcular DCF ──────────────────────────────────────────────────────────
+async function runPasso4() {
+  const btn    = document.querySelector('.run-btn');
+  const status = document.querySelector('.run-status');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Calculando...'; }
+  if (status) status.textContent = 'Propagando passo 1 e 2 → passo 3 e rodando o script...';
+
+  try {
+    const resp = await fetch(`/api/run-passo4/${S.ticker}`, { method: 'POST' });
+    const text = await resp.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch { throw new Error(`Servidor retornou resposta inválida:\n${text.slice(0, 400)}`); }
+    if (!data.ok) throw new Error(data.error || 'Erro desconhecido');
+
+    S.data[3] = data.passo4;
+
+    const body = document.querySelector('[data-passo-body="4"]');
+    if (body) {
+      body.innerHTML = '';
+      renderP4(body, data.passo4);
+      attachEditListeners();
+    }
+
+    refreshHero();
+  } catch (e) {
+    if (status) status.textContent = `Erro: ${e.message}`;
+    if (btn) { btn.disabled = false; btn.textContent = '▶ Recalcular DCF'; }
+  }
+}
+
 // ─── Passo 4 — Cálculo DCF ──────────────────────────────────────────────────
 function renderP4(container, d) {
   const ba  = d.bloco_a   || {};
@@ -978,6 +1091,14 @@ function renderP4(container, d) {
   const be  = d.bloco_e   || {};
   const bf  = d.bloco_f   || {};
   const cl  = d.checklist || [];
+
+  // Botão Recalcular
+  const runRow = el('div', 'run-btn-row');
+  runRow.innerHTML = `
+    <button class="run-btn" onclick="runPasso4()">▶ Recalcular DCF</button>
+    <span class="run-status">Propaga edições dos passos 1 e 2 e recalcula.</span>
+  `;
+  container.appendChild(runRow);
 
   // KPIs
   const kpiDiv = el('div', 'kpi-row');
@@ -1100,8 +1221,115 @@ function renderP5(container, d) {
     `;
     return;
   }
-  // Renderiza conteúdo genérico se passo5 existir
-  container.innerHTML = `<pre style="color:var(--muted);font-size:12px;overflow:auto">${JSON.stringify(d, null, 2)}</pre>`;
+
+  const p5 = d.passo5 || d;
+  const precoM = S.data[0]?.mercado?.P?.valor ?? S.data[3]?.bloco_f?.P;
+
+  function diffBadge(intrinsic) {
+    if (intrinsic == null || precoM == null) return '';
+    const pct = (precoM - intrinsic) / Math.abs(intrinsic) * 100;
+    const cls = pct > 2 ? 'color:var(--red)' : pct < -2 ? 'color:var(--green)' : 'color:var(--muted)';
+    const sinal = pct > 0 ? '+' : '';
+    return `<div class="cenario-diff" style="${cls}">${sinal}${pct.toFixed(1)}% vs mercado</div>`;
+  }
+
+  // ── Cenários
+  const cenarios = [
+    { cls: 'bear', nome: 'Bear',  val: p5.valor_acao_bear },
+    { cls: 'base', nome: 'Base',  val: p5.valor_acao_base },
+    { cls: 'bull', nome: 'Bull',  val: p5.valor_acao_bull },
+  ];
+
+  const st1 = el('div', 'section-title'); st1.textContent = 'Cenários de Valuation';
+  container.appendChild(st1);
+
+  const cGrid = el('div', 'cenarios-grid');
+  for (const { cls, nome, val } of cenarios) {
+    const isNeg = val != null && val < 0;
+    cGrid.innerHTML += `
+      <div class="cenario-card ${cls}">
+        <div class="cenario-name">${nome}</div>
+        <div class="cenario-val">${isNeg ? '-' : ''}${fBRL(Math.abs(val ?? 0))}</div>
+        <div class="cenario-vs">vs mercado ${precoM != null ? fBRL(precoM) : '—'}</div>
+        ${diffBadge(val)}
+      </div>
+    `;
+  }
+  container.appendChild(cGrid);
+
+  // ── Breakeven
+  const mais = p5.premissa_mais_sensivel;
+  const beRows = [
+    ['g Perpetuidade',  p5.g_perp_breakeven,   'g_perp_breakeven',   'pct'],
+    ['WACC Estimado',   p5.WACC_est_breakeven,  'WACC_est_breakeven', 'pct'],
+    ['Margem Alvo',     p5.Mg_alvo_breakeven,   'Mg_alvo_breakeven',  'pct'],
+    ['g Anos 2-5',      p5.g2_5_breakeven,      'g2_5_breakeven',     'pct'],
+  ];
+
+  const st2 = el('div', 'section-title'); st2.textContent = 'Breakeven — valor necessário para justificar o preço atual';
+  container.appendChild(st2);
+
+  const bGrid = el('div', 'breakeven-grid');
+  for (const [label, val, key, type] of beRows) {
+    if (val == null) continue;
+    const isMais = mais && key.startsWith(mais.replace('premissas_analiticas.', '').replace(/\..+/, ''));
+    const formatted = type === 'pct' ? fPct2(val) : fM(val);
+    bGrid.innerHTML += `
+      <div class="breakeven-card ${isMais ? 'highlight' : ''}">
+        <div class="breakeven-label">${label}</div>
+        <div class="breakeven-val">${formatted}</div>
+        ${isMais ? '<div class="breakeven-badge">⚡ Mais sensível</div>' : ''}
+      </div>
+    `;
+  }
+  container.appendChild(bGrid);
+
+  // ── Conclusão
+  if (p5.conclusao) {
+    const st3 = el('div', 'section-title'); st3.textContent = 'Conclusão';
+    container.appendChild(st3);
+
+    const box = el('div', 'conclusao-box');
+    const lines = p5.conclusao
+      .split(/\n/)
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    for (const line of lines) {
+      const match = line.match(/^(\d+)\.\s*(.+)$/);
+      const item = el('div', 'conclusao-item');
+      if (match) {
+        item.innerHTML = `<span class="conclusao-num">${match[1]}.</span><span>${match[2]}</span>`;
+      } else {
+        item.innerHTML = `<span>${line}</span>`;
+      }
+      box.appendChild(item);
+    }
+    container.appendChild(box);
+  }
+}
+
+// ─── Atualiza hero após edição ───────────────────────────────────────────────
+function refreshHero() {
+  const p1 = S.data[0];
+  const p4 = S.data[3];
+  const precoM = p1?.mercado?.P?.valor ?? p4?.bloco_f?.P;
+  const introV = p4?.bloco_f?.Valor_acao;
+
+  const mEl = document.querySelector('.hero-price-value.market');
+  if (mEl && precoM != null) mEl.textContent = fBRL(precoM);
+
+  const verdict = document.querySelector('.hero-verdict');
+  if (!verdict || precoM == null || introV == null) return;
+  const pct = (precoM - introV) / introV;
+  const pctAbs = Math.abs(pct * 100).toFixed(1);
+  const pctEl  = verdict.querySelector('.hero-verdict-pct');
+  const lblEl  = verdict.querySelector('.hero-verdict-label');
+  if (pctEl) {
+    pctEl.className = 'hero-verdict-pct ' + (pct > 0.02 ? 'overvalued' : pct < -0.02 ? 'undervalued' : '');
+    pctEl.textContent = pct > 0.02 ? `+${pctAbs}% premium` : pct < -0.02 ? `-${pctAbs}% desconto` : 'Preço justo';
+  }
+  if (lblEl) lblEl.textContent = pct > 0.02 ? 'Sobreprecificado' : pct < -0.02 ? 'Subprecificado' : 'Avaliação';
 }
 
 // ─── Edição inline ───────────────────────────────────────────────────────────
@@ -1164,6 +1392,7 @@ function openEdit(wrap, displayEl) {
       }
       wrap.classList.add('saved');
       setTimeout(() => wrap.classList.remove('saved'), 1200);
+      refreshHero();
       attachEditListeners();
     } catch {
       wrap.innerHTML = origContent;
