@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valuation DCF</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #1f2937;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --blue:      #58a6ff;
+      --green:     #3fb950;
+      --red:       #f85149;
+      --yellow:    #d29922;
+      --purple:    #bc8cff;
+      --radius:    8px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+    .logo span { color: var(--blue); }
+    #breadcrumb { display: flex; align-items: center; gap: 8px; }
+    .back-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); }
+    .bc-sep { color: var(--border); }
+    .bc-current { color: var(--text); font-size: 13px; font-weight: 500; }
+
+    /* ── Main ────────────────────────────────────────────────────── */
+    main { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Loading / Empty ─────────────────────────────────────────── */
+    .loading, .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 80px 0;
+      font-size: 15px;
+    }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── List view ───────────────────────────────────────────────── */
+    .list-header { margin-bottom: 24px; }
+    .list-header h1 { font-size: 22px; font-weight: 600; }
+    .list-header p { color: var(--muted); margin-top: 4px; font-size: 13px; }
+
+    .ticker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .ticker-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .ticker-card:hover {
+      border-color: var(--blue);
+      transform: translateY(-1px);
+    }
+
+    .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .ticker-badge {
+      font-size: 16px; font-weight: 700; color: var(--blue);
+      font-family: "SF Mono", "Fira Code", monospace;
+    }
+
+    .upside-badge {
+      font-size: 12px; font-weight: 600;
+      padding: 3px 8px; border-radius: 12px;
+    }
+    .upside-badge.positive { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+    .upside-badge.negative { background: rgba(248, 81, 73, 0.15); color: var(--red); }
+    .upside-badge.neutral  { background: rgba(139, 148, 158, 0.15); color: var(--muted); }
+
+    .card-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+    .card-sector { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+
+    .price-row {
+      display: flex; gap: 24px; margin-bottom: 16px;
+    }
+    .price-item { }
+    .price-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .price-value { font-size: 18px; font-weight: 700; margin-top: 2px; }
+    .price-value.market { color: var(--text); }
+    .price-value.intrinsic { color: var(--blue); }
+
+    .pipeline-steps { display: flex; gap: 4px; }
+    .pipeline-step {
+      width: 28px; height: 6px; border-radius: 3px;
+      background: var(--border);
+    }
+    .pipeline-step.done { background: var(--green); }
+    .pipeline-step.partial { background: var(--yellow); }
+    .pipeline-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Detail view ─────────────────────────────────────────────── */
+    .detail-hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .hero-left { }
+    .hero-company { font-size: 24px; font-weight: 700; }
+    .hero-ticker {
+      font-size: 14px; font-weight: 500;
+      font-family: "SF Mono", "Fira Code", monospace;
+      color: var(--blue);
+    }
+    .hero-meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+    .hero-right {
+      display: flex; align-items: center; gap: 32px;
+    }
+    .hero-price { text-align: center; }
+    .hero-price-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .hero-price-value { font-size: 28px; font-weight: 800; margin-top: 4px; }
+    .hero-price-value.market { color: var(--text); }
+    .hero-price-value.intrinsic { color: var(--blue); }
+    .hero-vs { color: var(--border); font-size: 20px; font-weight: 300; }
+
+    .hero-verdict {
+      text-align: center;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      padding: 12px 20px;
+      min-width: 140px;
+    }
+    .hero-verdict-pct { font-size: 26px; font-weight: 800; }
+    .hero-verdict-pct.overvalued { color: var(--red); }
+    .hero-verdict-pct.undervalued { color: var(--green); }
+    .hero-verdict-label { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ── Accordion ───────────────────────────────────────────────── */
+    .accordion { display: flex; flex-direction: column; gap: 8px; }
+
+    .acc-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .acc-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.1s;
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+      color: var(--text);
+    }
+    .acc-header:hover { background: rgba(255,255,255,0.03); }
+
+    .passo-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      background: var(--surface2);
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .passo-num.done { background: rgba(63,185,80,0.15); color: var(--green); }
+    .passo-num.pending { background: rgba(139,148,158,0.08); color: var(--border); }
+
+    .acc-title { font-size: 14px; font-weight: 600; flex: 1; }
+    .acc-status { font-size: 12px; color: var(--muted); }
+    .acc-chevron {
+      color: var(--muted); font-size: 12px;
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+    .acc-item.open .acc-chevron { transform: rotate(180deg); }
+
+    .acc-body { display: none; padding: 0 20px 20px; }
+    .acc-item.open .acc-body { display: block; }
+
+    /* ── Tables ──────────────────────────────────────────────────── */
+    .section-title {
+      font-size: 12px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.8px;
+      color: var(--muted);
+      margin: 16px 0 8px;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(48,54,61,0.5);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    td.field-name { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    td.val-num { font-weight: 600; text-align: right; white-space: nowrap; }
+    td.val-pct { font-weight: 600; text-align: right; color: var(--blue); white-space: nowrap; }
+    td.fonte { color: var(--muted); font-size: 11px; max-width: 300px; }
+
+    .conf-badge {
+      font-size: 10px; font-weight: 600;
+      padding: 2px 6px; border-radius: 4px;
+      white-space: nowrap;
+    }
+    .conf-DIRETO   { background: rgba(63,185,80,0.12); color: var(--green); }
+    .conf-CALCULADO{ background: rgba(88,166,255,0.12); color: var(--blue); }
+
+    /* two-column section layout */
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 700px) { .section-grid { grid-template-columns: 1fr; } }
+    .section-box {
+      background: var(--surface2);
+      border-radius: var(--radius);
+      padding: 4px 0;
+    }
+
+    /* ── Premissas cards ─────────────────────────────────────────── */
+    .premissas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .premissa-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+    }
+    .premissa-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .premissa-val { font-size: 20px; font-weight: 700; color: var(--blue); }
+
+    /* ── Narrative ────────────────────────────────────────────────── */
+    .narrative-block {
+      background: var(--surface2);
+      border-left: 3px solid var(--blue);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+    }
+    .narrative-title { font-size: 11px; font-weight: 600; color: var(--blue); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .narrative-text  { color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+    /* ── Checklist ────────────────────────────────────────────────── */
+    .checklist { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .check-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 13px; padding: 6px 0;
+      border-bottom: 1px solid rgba(48,54,61,0.4);
+    }
+    .check-item:last-child { border-bottom: none; }
+    .check-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+    .check-ok    .check-icon { color: var(--green); }
+    .check-fail  .check-icon { color: var(--red); }
+    .check-info  .check-icon { color: var(--yellow); }
+    .check-nome  { flex: 1; font-weight: 500; }
+    .check-detalhe { color: var(--muted); font-size: 12px; margin-top: 1px; }
+
+    /* ── Alert badges ──────────────────────────────────────────────── */
+    .alert-box {
+      background: rgba(210,153,34,0.1);
+      border: 1px solid rgba(210,153,34,0.3);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--yellow);
+      margin-bottom: 8px;
+    }
+    .alert-box + .alert-box { margin-top: -2px; }
+
+    /* ── DCF passo 4 ──────────────────────────────────────────────── */
+    .kpi-row {
+      display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .kpi-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      min-width: 120px;
+    }
+    .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-val   { font-size: 20px; font-weight: 700; margin-top: 4px; }
+    .kpi-val.blue   { color: var(--blue); }
+    .kpi-val.green  { color: var(--green); }
+    .kpi-val.purple { color: var(--purple); }
+
+    /* FCF bar in table */
+    .bar-cell { min-width: 80px; }
+    .bar-wrap { display: flex; align-items: center; gap: 6px; }
+    .bar-bg { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width 0.3s; }
+
+    /* Equity bridge */
+    .bridge {
+      background: var(--surface2);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .bridge-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(48,54,61,0.5);
+      font-size: 13px;
+    }
+    .bridge-row:last-child { border-bottom: none; }
+    .bridge-row.total {
+      font-weight: 700; font-size: 15px;
+      border-top: 2px solid var(--border);
+      margin-top: 4px; padding-top: 12px;
+    }
+    .bridge-row.final {
+      font-size: 18px; font-weight: 800; color: var(--blue);
+      border-top: 2px solid var(--border);
+      margin-top: 4px; padding-top: 12px;
+    }
+    .bridge-label { color: var(--muted); }
+    .bridge-label.indent { padding-left: 16px; }
+    .bridge-val { font-weight: 600; }
+    .bridge-val.positive { color: var(--green); }
+    .bridge-val.negative { color: var(--red); }
+
+    /* ── Editable fields ──────────────────────────────────────────── */
+    .editable-wrap {
+      display: inline-flex; align-items: center; gap: 4px;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 1px 4px;
+      margin: -1px -4px;
+      transition: background 0.15s, box-shadow 0.2s;
+    }
+    .editable-wrap:hover { background: rgba(88,166,255,0.1); }
+    .editable-wrap:hover .edit-btn { opacity: 1; }
+    .editable-wrap.saved { box-shadow: 0 0 0 2px var(--green); }
+    .editable-wrap.error { box-shadow: 0 0 0 2px var(--red); }
+
+    .edit-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 11px; padding: 0;
+      opacity: 0; transition: opacity 0.15s;
+      line-height: 1;
+    }
+    .edit-btn:hover { color: var(--blue); }
+
+    .edit-input {
+      background: var(--surface);
+      border: 1px solid var(--blue);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      padding: 2px 6px;
+      outline: none;
+      width: 100px;
+    }
+
+    .save-btn, .cancel-btn {
+      border: none; border-radius: 4px;
+      font-size: 13px; cursor: pointer;
+      padding: 2px 7px; font-family: inherit;
+    }
+    .save-btn   { background: var(--green); color: #000; font-weight: 600; }
+    .cancel-btn { background: var(--surface2); color: var(--muted); }
+
+    /* ── Passo 5 pending ──────────────────────────────────────────── */
+    .pending-box {
+      text-align: center;
+      padding: 48px 0;
+      color: var(--muted);
+    }
+    .pending-icon { font-size: 40px; margin-bottom: 12px; }
+    .pending-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .pending-sub   { font-size: 13px; }
+
+    /* ── Tags / chips ──────────────────────────────────────────────── */
+    .tag {
+      display: inline-block;
+      font-size: 11px; font-weight: 500;
+      padding: 2px 8px; border-radius: 20px;
+    }
+    .tag-ok   { background: rgba(63,185,80,0.12); color: var(--green); }
+    .tag-fail { background: rgba(248,81,73,0.12); color: var(--red); }
+    .tag-warn { background: rgba(210,153,34,0.12); color: var(--yellow); }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Valuation <span>DCF</span></div>
+  <div id="breadcrumb"></div>
+</header>
+
+<main id="app">
+  <div class="loading">
+    <div class="spinner"></div>
+    Carregando...
+  </div>
+</main>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+const S = {
+  ticker: null,
+  data: [null, null, null, null, null]  // passos[0..4]
+};
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+const BRL = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const N2  = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+function fBRL(v)  { return v == null ? '—' : 'R$ ' + BRL.format(v); }
+function fM(v)    { return v == null ? '—' : N2.format(v); }
+function fPct(v)  { return v == null ? '—' : (v * 100).toFixed(1) + '%'; }
+function fPct2(v) { return v == null ? '—' : (v * 100).toFixed(2) + '%'; }
+function fX(v)    { return v == null ? '—' : N2.format(v) + 'x'; }
+
+function getDeep(obj, path) {
+  return path.reduce((o, k) => (o != null ? o[k] : null), obj);
+}
+function setDeep(obj, path, val) {
+  const last = path[path.length - 1];
+  const parent = path.slice(0, -1).reduce((o, k) => o[k], obj);
+  parent[last] = val;
+}
+
+function el(tag, cls, content) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (content !== undefined) e.innerHTML = content;
+  return e;
+}
+function app() { return document.getElementById('app'); }
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+async function fetchTickers() {
+  const r = await fetch('/api/tickers');
+  return r.json();
+}
+
+async function fetchPasso(ticker, n) {
+  try {
+    const r = await fetch(`/Acoes/${ticker}/passo${n}.json?_=${Date.now()}`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+async function savePasso(ticker, n) {
+  const data = S.data[n - 1];
+  const r = await fetch(`/api/passo/${ticker}/${n}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error('Falha ao salvar');
+}
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+async function render() {
+  const hash = location.hash.slice(1).trim();
+  if (!hash) {
+    await renderList();
+  } else {
+    await renderDetail(hash);
+  }
+}
+
+window.addEventListener('hashchange', render);
+render();
+
+// ─── List view ────────────────────────────────────────────────────────────────
+async function renderList() {
+  setBreadcrumb(null);
+  app().innerHTML = '<div class="loading"><div class="spinner"></div>Carregando empresas...</div>';
+
+  let tickers;
+  try { tickers = await fetchTickers(); }
+  catch { app().innerHTML = '<div class="empty">Erro ao conectar ao servidor.</div>'; return; }
+
+  if (!tickers.length) {
+    app().innerHTML = '<div class="empty">Nenhuma empresa encontrada em Acoes/</div>';
+    return;
+  }
+
+  // Carrega passo1 + passo4 de cada ticker em paralelo
+  const cards = await Promise.all(tickers.map(async t => {
+    const [p1, p4] = await Promise.all([fetchPasso(t, 1), fetchPasso(t, 4)]);
+    return { ticker: t, p1, p4 };
+  }));
+
+  const frag = document.createDocumentFragment();
+  const header = el('div', 'list-header');
+  header.innerHTML = `<h1>Empresas analisadas</h1><p>${tickers.length} empresa${tickers.length !== 1 ? 's' : ''} encontrada${tickers.length !== 1 ? 's' : ''} em Acoes/</p>`;
+  frag.appendChild(header);
+
+  const grid = el('div', 'ticker-grid');
+  for (const { ticker, p1, p4 } of cards) {
+    grid.appendChild(buildCard(ticker, p1, p4));
+  }
+  frag.appendChild(grid);
+
+  app().innerHTML = '';
+  app().appendChild(frag);
+}
+
+function buildCard(ticker, p1, p4) {
+  const nome   = p1?.empresa?.nome   || ticker;
+  const setor  = p1?.empresa?.setor  || '—';
+  const pais   = p1?.empresa?.pais   || '';
+  const precoM = p1?.mercado?.P?.valor;
+  const introV = p4?.bloco_f?.Valor_acao;
+
+  let pct = null, cls = 'neutral', label = 'Sem valuation';
+  if (precoM != null && introV != null) {
+    pct = (precoM - introV) / introV;
+    if (pct > 0.02)       { cls = 'negative'; label = '+' + fPct(pct) + ' prêmio'; }
+    else if (pct < -0.02) { cls = 'positive'; label = fPct(pct) + ' desconto'; }
+    else                  { cls = 'neutral';  label = 'Justo'; }
+  }
+
+  // conta passos existentes
+  const passosDone = [p1, null, null, p4, null].map((v, i) => v !== null ? i : -1).filter(x => x >= 0);
+
+  const a = el('a', 'ticker-card');
+  a.href = '#' + ticker;
+  a.innerHTML = `
+    <div class="card-top">
+      <span class="ticker-badge">${ticker}</span>
+      <span class="upside-badge ${cls}">${label}</span>
+    </div>
+    <div class="card-name">${nome}</div>
+    <div class="card-sector">${setor}${pais ? ' · ' + pais : ''}</div>
+    <div class="price-row">
+      <div class="price-item">
+        <div class="price-label">Mercado</div>
+        <div class="price-value market">${precoM != null ? fBRL(precoM) : '—'}</div>
+      </div>
+      <div class="price-item">
+        <div class="price-label">Intrínseco</div>
+        <div class="price-value intrinsic">${introV != null ? fBRL(introV) : '—'}</div>
+      </div>
+    </div>
+    <div class="pipeline-steps">${[1,2,3,4,5].map(n => `<div class="pipeline-step ${p1 && n===1 || p4 && n===4 ? 'done' : ''}"></div>`).join('')}</div>
+    <div class="pipeline-label">Pipeline: ${[p1,null,null,p4,null].filter(Boolean).length}/5 passos concluídos</div>
+  `;
+  return a;
+}
+
+// ─── Detail view ──────────────────────────────────────────────────────────────
+async function renderDetail(ticker) {
+  setBreadcrumb(ticker);
+  app().innerHTML = '<div class="loading"><div class="spinner"></div>Carregando análise...</div>';
+
+  S.ticker = ticker;
+  const passos = await Promise.all([1,2,3,4,5].map(n => fetchPasso(ticker, n)));
+  passos.forEach((d, i) => { S.data[i] = d; });
+
+  const [p1, p2, p3, p4, p5] = passos;
+  if (!p1 && !p2 && !p3 && !p4 && !p5) {
+    app().innerHTML = `<div class="empty">Nenhum dado encontrado para ${ticker}</div>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+
+  // Hero
+  frag.appendChild(buildHero(ticker, p1, p4));
+
+  // Accordion
+  const acc = el('div', 'accordion');
+  const items = [
+    { n: 1, title: 'Extração do Release',      data: p1, fn: renderP1, open: true  },
+    { n: 2, title: 'Parâmetros de Mercado',     data: p2, fn: renderP2, open: false },
+    { n: 3, title: 'Premissas do Analista',     data: p3, fn: renderP3, open: false },
+    { n: 4, title: 'Cálculo DCF',               data: p4, fn: renderP4, open: true  },
+    { n: 5, title: 'Sensibilidade / Cenários',  data: p5, fn: renderP5, open: false },
+  ];
+  for (const item of items) {
+    acc.appendChild(buildAccItem(item));
+  }
+  frag.appendChild(acc);
+
+  app().innerHTML = '';
+  app().appendChild(frag);
+
+  attachEditListeners();
+}
+
+function buildHero(ticker, p1, p4) {
+  const nome   = p1?.empresa?.nome   || ticker;
+  const setor  = p1?.empresa?.setor  || '';
+  const pais   = p1?.empresa?.pais   || '';
+  const precoM = p4?.bloco_f?.P ?? p1?.mercado?.P?.valor;
+  const introV = p4?.bloco_f?.Valor_acao;
+
+  let pct = null, cls = '', verdade = '—';
+  if (precoM != null && introV != null) {
+    pct = (precoM - introV) / introV;
+    const pctAbs = Math.abs(pct * 100).toFixed(1);
+    if (pct > 0.02)       { cls = 'overvalued';  verdade = `+${pctAbs}% premium`; }
+    else if (pct < -0.02) { cls = 'undervalued'; verdade = `-${pctAbs}% desconto`; }
+    else                  { cls = '';             verdade = 'Preço justo'; }
+  }
+
+  const div = el('div', 'detail-hero');
+  div.innerHTML = `
+    <div class="hero-left">
+      <div class="hero-company">${nome} <span class="hero-ticker">${ticker}</span></div>
+      <div class="hero-meta">${[setor, pais].filter(Boolean).join(' · ')}</div>
+    </div>
+    <div class="hero-right">
+      ${precoM != null ? `
+        <div class="hero-price">
+          <div class="hero-price-label">Mercado</div>
+          <div class="hero-price-value market">${fBRL(precoM)}</div>
+        </div>
+        <div class="hero-vs">vs</div>
+        <div class="hero-price">
+          <div class="hero-price-label">Intrínseco</div>
+          <div class="hero-price-value intrinsic">${introV != null ? fBRL(introV) : '—'}</div>
+        </div>
+        ${pct != null ? `
+          <div class="hero-verdict">
+            <div class="hero-verdict-pct ${cls}">${verdade}</div>
+            <div class="hero-verdict-label">${pct > 0.02 ? 'Sobreprecificado' : pct < -0.02 ? 'Subprecificado' : 'Avaliação'}</div>
+          </div>
+        ` : ''}
+      ` : '<div class="hero-verdict"><div class="hero-verdict-label">Valuation não calculado</div></div>'}
+    </div>
+  `;
+  return div;
+}
+
+function buildAccItem({ n, title, data, fn, open }) {
+  const done = data != null;
+  const item = el('div', 'acc-item' + (open && done ? ' open' : ''));
+
+  const hdr = el('button', 'acc-header');
+  hdr.innerHTML = `
+    <span class="passo-num ${done ? 'done' : 'pending'}">${done ? '✓' : n}</span>
+    <span class="acc-title">Passo ${n} — ${title}</span>
+    <span class="acc-status">${done ? 'Concluído' : 'Pendente'}</span>
+    <span class="acc-chevron">▼</span>
+  `;
+  hdr.onclick = () => {
+    const isOpen = item.classList.contains('open');
+    item.classList.toggle('open', !isOpen);
+  };
+
+  const body = el('div', 'acc-body');
+  if (done) {
+    try { fn(body, data, n); }
+    catch (e) { body.innerHTML = `<div class="empty">Erro ao renderizar: ${e.message}</div>`; }
+  } else {
+    body.innerHTML = `<div class="pending-box"><div class="pending-icon">⏳</div><div class="pending-title">Passo ${n} pendente</div><div class="pending-sub">Execute o pipeline para gerar este passo.</div></div>`;
+  }
+
+  item.appendChild(hdr);
+  item.appendChild(body);
+  return item;
+}
+
+// ─── Passo 1 — Extração do Release ──────────────────────────────────────────
+function renderP1(container, d, passoN) {
+  const PASSO = passoN; // 1
+
+  container.innerHTML = `
+    <div class="section-grid">
+      <div class="section-box">
+        <div class="section-title" style="padding:0 12px">DRE — Resultado</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Campo</th><th style="text-align:right">Valor</th><th>Conf.</th>
+            </tr></thead>
+            <tbody id="p1-dre"></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="section-box" style="margin-bottom:12px">
+          <div class="section-title" style="padding:0 12px">Balanço</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Campo</th><th style="text-align:right">Valor (M)</th><th>Conf.</th></tr></thead>
+              <tbody id="p1-bal"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="section-box">
+          <div class="section-title" style="padding:0 12px">Mercado &amp; Operacional</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Campo</th><th style="text-align:right">Valor</th><th>Conf.</th></tr></thead>
+              <tbody id="p1-mkt"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const dreRows = [
+    ['Receita (Rev₀)',   d.dre?.Rev_0,   'dre.Rev_0.valor',       'number', v => fM(v) + 'M'],
+    ['EBIT',            d.dre?.EBIT_0,  'dre.EBIT_0.valor',      'number', v => fM(v) + 'M'],
+    ['EBITDA',          d.dre?.EBITDA,  'dre.EBITDA.valor',      'number', v => fM(v) + 'M'],
+    ['Depreciação',     d.dre?.Dep,     'dre.Dep.valor',         'number', v => fM(v) + 'M'],
+    ['Juros',           d.dre?.Juros,   'dre.Juros.valor',       'number', v => fM(v) + 'M'],
+    ['LAIR',            d.dre?.LAIR,    'dre.LAIR.valor',        'number', v => fM(v) + 'M'],
+    ['IR Pago',         d.dre?.IR_pago, 'dre.IR_pago.valor',     'number', v => fM(v) + 'M'],
+    ['IR Efetivo',      d.dre?.IR_ef,   'dre.IR_ef.valor',       'pct',    v => fPct(v)],
+    ['Margem EBIT',     d.dre?.Mg_atual,'dre.Mg_atual.valor',    'pct',    v => fPct(v)],
+  ];
+
+  const balRows = [
+    ['Patrimônio Líquido', d.balanco?.PL,    'balanco.PL.valor',    'number', v => fM(v)],
+    ['Dívida Bruta',       d.balanco?.D,     'balanco.D.valor',     'number', v => fM(v)],
+    ['Caixa',              d.balanco?.Caixa, 'balanco.Caixa.valor', 'number', v => fM(v)],
+    ['Dívida Líquida',     d.balanco?.D_liq, 'balanco.D_liq.valor', 'number', v => fM(v)],
+    ['Minority Interest',  d.balanco?.MinInt,'balanco.MinInt.valor', 'number', v => fM(v)],
+    ['Capital Investido',  d.balanco?.CI,    'balanco.CI.valor',    'number', v => fM(v)],
+  ];
+
+  const mktRows = [
+    ['Ações (M)',        d.mercado?.Shares,      'mercado.Shares.valor',      'number', v => fM(v)],
+    ['Preço',           d.mercado?.P,            'mercado.P.valor',           'number', v => fBRL(v)],
+    ['Market Cap (M)',  d.mercado?.MktCap,       'mercado.MktCap.valor',      'number', v => fM(v)],
+    ['Receita Ant.',    d.operacional?.Rev_ant,  'operacional.Rev_ant.valor', 'number', v => fM(v) + 'M'],
+    ['Cresc. Recente',  d.operacional?.g_recente,'operacional.g_recente.valor','pct',   v => fPct(v)],
+    ['ROIC Atual',      d.operacional?.ROIC_atual,'operacional.ROIC_atual.valor','pct', v => fPct(v)],
+    ['CAPEX',           d.operacional?.CAPEX,    'operacional.CAPEX.valor',   'number', v => fM(v) + 'M'],
+  ];
+
+  fillTable(document.getElementById('p1-dre'), dreRows, PASSO);
+  fillTable(document.getElementById('p1-bal'), balRows, PASSO);
+  fillTable(document.getElementById('p1-mkt'), mktRows, PASSO);
+}
+
+function fillTable(tbody, rows, passoN) {
+  if (!tbody) return;
+  for (const [label, obj, path, type, fmt] of rows) {
+    const val = obj?.valor ?? obj;
+    if (val == null) continue;
+    const tr = document.createElement('tr');
+    const conf = obj?.confianca;
+    tr.innerHTML = `
+      <td class="field-name">${label}</td>
+      <td class="val-num">
+        <span class="editable-wrap" data-passo="${passoN}" data-path="${path}" data-type="${type}">
+          <span class="ev">${fmt(val)}</span>
+          <button class="edit-btn" title="Editar">✏</button>
+        </span>
+      </td>
+      <td>${conf ? `<span class="conf-badge conf-${conf}">${conf}</span>` : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// ─── Passo 2 — Parâmetros de Mercado ────────────────────────────────────────
+function renderP2(container, d, passoN) {
+  const pm = d.parametros_mercado || {};
+  const st = d.status_passo2 || {};
+
+  const alertas = st.alertas || [];
+  const alertHTML = alertas.map(a => `<div class="alert-box">⚠ ${a}</div>`).join('');
+
+  const rows = [
+    ['Rf (Taxa Livre de Risco)',  pm.Rf,       'parametros_mercado.Rf.valor',       'pct',    v => fPct2(v)],
+    ['ERP (Prêmio de Risco)',     pm.ERP,      'parametros_mercado.ERP.valor',      'pct',    v => fPct2(v)],
+    ['Beta Desalavancado (βu)',   pm.Beta_u,   'parametros_mercado.Beta_u.valor',   'number', v => fM(v)],
+    ['Kd pré-IR',                 pm.Kd_pre,   'parametros_mercado.Kd_pre.valor',   'pct',    v => fPct2(v)],
+    ['IR Marginal',               pm.IR_marg,  'parametros_mercado.IR_marg.valor',  'pct',    v => fPct(v)],
+    ['WACC Estimado',             pm.WACC_est, 'parametros_mercado.WACC_est.valor', 'pct',    v => fPct(v)],
+  ];
+
+  container.innerHTML = `
+    ${alertHTML}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Parâmetro</th><th style="text-align:right">Valor</th><th>Fonte</th></tr></thead>
+        <tbody id="p2-tab"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px">
+      <span class="tag ${st.pronto_para_passo3 ? 'tag-ok' : 'tag-fail'}">
+        ${st.pronto_para_passo3 ? '✓ Pronto para Passo 3' : '✗ Bloqueado — revisar alertas'}
+      </span>
+    </div>
+  `;
+
+  const tbody = document.getElementById('p2-tab');
+  for (const [label, obj, path, type, fmt] of rows) {
+    const val = obj?.valor ?? obj;
+    if (val == null) continue;
+    const fonte = obj?.fonte || obj?.metodo || obj?.composicao || '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="field-name">${label}</td>
+      <td class="val-num">
+        <span class="editable-wrap" data-passo="${passoN}" data-path="${path}" data-type="${type}">
+          <span class="ev">${fmt(val)}</span>
+          <button class="edit-btn" title="Editar">✏</button>
+        </span>
+      </td>
+      <td class="fonte">${fonte}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// ─── Passo 3 — Premissas do Analista ────────────────────────────────────────
+function renderP3(container, d, passoN) {
+  const pr = d.premissas_analiticas || {};
+  const nar = d.narrativa_premissas || {};
+  const val = d.validacoes || {};
+
+  const premCards = [
+    ['g Ano 1',          pr.g1,      'premissas_analiticas.g1',      'pct',    v => fPct(v)],
+    ['g Anos 2-5',       pr.g2_5,    'premissas_analiticas.g2_5',    'pct',    v => fPct(v)],
+    ['Margem Atual',     pr.Mg_1,    'premissas_analiticas.Mg_1',    'pct',    v => fPct(v)],
+    ['Margem Alvo',      pr.Mg_alvo, 'premissas_analiticas.Mg_alvo', 'pct',    v => fPct(v)],
+    ['Ano Convergência', pr.Ano_conv,'premissas_analiticas.Ano_conv', 'number', v => 'Ano ' + v],
+    ['Giro de Capital',  pr.StC,     'premissas_analiticas.StC',     'number', v => fX(v)],
+    ['g Perpetuidade',   pr.g_perp,  'premissas_analiticas.g_perp',  'pct',    v => fPct(v)],
+    ['P(Falência)',      pr.P_fail,  'premissas_analiticas.P_fail',  'number', v => fPct(v)],
+  ];
+
+  container.innerHTML = `<div class="premissas-grid" id="p3-cards"></div>`;
+
+  const grid = document.getElementById('p3-cards');
+  for (const [label, rawVal, path, type, fmt] of premCards) {
+    if (rawVal == null) continue;
+    const card = el('div', 'premissa-card');
+    card.innerHTML = `
+      <div class="premissa-label">${label}</div>
+      <div class="premissa-val">
+        <span class="editable-wrap" data-passo="${passoN}" data-path="${path}" data-type="${type}">
+          <span class="ev">${fmt(rawVal)}</span>
+          <button class="edit-btn" title="Editar">✏</button>
+        </span>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+
+  // Narrativa
+  const narKeys = [
+    ['crescimento', 'Crescimento'],
+    ['margem',      'Margens'],
+    ['risco',       'Risco'],
+    ['perpetuidade','Perpetuidade'],
+  ];
+  for (const [k, titulo] of narKeys) {
+    if (!nar[k]) continue;
+    const nb = el('div', 'narrative-block');
+    nb.innerHTML = `<div class="narrative-title">${titulo}</div><div class="narrative-text">${nar[k]}</div>`;
+    container.appendChild(nb);
+  }
+
+  // Validações
+  const valKeys = Object.entries(val).filter(([k]) => k !== 'pronto_para_passo4');
+  if (valKeys.length) {
+    const st = el('div', 'section-title');
+    st.textContent = 'Validações';
+    container.appendChild(st);
+    const list = el('ul', 'checklist');
+    for (const [k, v] of valKeys) {
+      const isOk = v === true || (typeof v === 'string' && v.startsWith('OK'));
+      const isFail = v === false || (typeof v === 'string' && v.startsWith('FALHOU'));
+      const li = el('li', `check-item ${isOk ? 'check-ok' : isFail ? 'check-fail' : 'check-info'}`);
+      li.innerHTML = `
+        <span class="check-icon">${isOk ? '✓' : isFail ? '✗' : '⚠'}</span>
+        <div><div class="check-nome">${k.replace(/_/g,' ')}</div><div class="check-detalhe">${typeof v === 'string' ? v : ''}</div></div>
+      `;
+      list.appendChild(li);
+    }
+    container.appendChild(list);
+  }
+}
+
+// ─── Passo 4 — Cálculo DCF ──────────────────────────────────────────────────
+function renderP4(container, d) {
+  const ba  = d.bloco_a   || {};
+  const bbc = d.bloco_b_c || [];
+  const bd  = d.bloco_d   || {};
+  const be  = d.bloco_e   || {};
+  const bf  = d.bloco_f   || {};
+  const cl  = d.checklist || [];
+
+  // KPIs
+  const kpiDiv = el('div', 'kpi-row');
+  const kpis = [
+    ['WACC',          fPct(ba.WACC_0),          'blue'],
+    ['Beta Alavancado', fM(ba.Beta_L) + 'x',    'blue'],
+    ['Ke (Custo Equity)', fPct(ba.Ke),          'purple'],
+    ['VP FCF 10 anos', 'R$ ' + fM(d.VP_total) + 'M', 'blue'],
+    ['Valor Terminal', 'R$ ' + fM(bd.VP_VT) + 'M', 'purple'],
+    ['% VT / Total',  fPct(bd.pct_vt / 100),   'purple'],
+  ];
+  for (const [lbl, val, cls] of kpis) {
+    kpiDiv.innerHTML += `<div class="kpi-card"><div class="kpi-label">${lbl}</div><div class="kpi-val ${cls}">${val}</div></div>`;
+  }
+  container.appendChild(kpiDiv);
+
+  // Tabela FCF
+  const st1 = el('div', 'section-title'); st1.textContent = 'Projeções de Fluxo de Caixa (10 anos)';
+  container.appendChild(st1);
+
+  const maxVP = Math.max(...bbc.map(r => r.VP_FCFF));
+  const tw = el('div', 'table-wrap');
+  let tbl = `<table>
+    <thead><tr>
+      <th>Ano</th><th style="text-align:right">g</th>
+      <th style="text-align:right">Receita</th><th style="text-align:right">Margem</th>
+      <th style="text-align:right">NOPAT</th><th style="text-align:right">FCFF</th>
+      <th style="text-align:right">WACC</th><th>VP FCFF</th>
+    </tr></thead><tbody>`;
+  for (const r of bbc) {
+    const barPct = (r.VP_FCFF / maxVP * 100).toFixed(1);
+    tbl += `<tr>
+      <td style="font-weight:600">${r.t}</td>
+      <td class="val-pct">${fPct(r.g)}</td>
+      <td class="val-num">${fM(r.Rev)}M</td>
+      <td class="val-pct">${fPct(r.Mg)}</td>
+      <td class="val-num">${fM(r.NOPAT)}M</td>
+      <td class="val-num">${fM(r.FCFF)}M</td>
+      <td class="val-pct">${fPct(r.WACC)}</td>
+      <td class="bar-cell">
+        <div class="bar-wrap">
+          <div class="bar-bg"><div class="bar-fill" style="width:${barPct}%"></div></div>
+          <span style="font-size:12px;font-weight:600;white-space:nowrap">${fM(r.VP_FCFF)}M</span>
+        </div>
+      </td>
+    </tr>`;
+  }
+  tbl += '</tbody></table>';
+  tw.innerHTML = tbl;
+  container.appendChild(tw);
+
+  // Bridge equity
+  const st2 = el('div', 'section-title'); st2.textContent = 'Valor da Empresa → Preço por Ação';
+  container.appendChild(st2);
+
+  const bridge = el('div', 'bridge');
+  const bridgeRows = [
+    ['VP Fluxos (10 anos)', d.VP_total, false],
+    ['+ Valor Terminal (VP)', bd.VP_VT, false],
+    ['= Valor Operacional',  be.Valor_op, true],
+    ['+ Caixa',              bf.Caixa,   false],
+    ['+ Ativos Não-Op.',     bf.AtvNOp,  false],
+    ['- Dívida Bruta',       -bf.D,      false],
+    ['- Minority Interest',  bf.MinInt,  false],
+    ['= Equity Value',       bf.Equity_Value, true],
+  ];
+  for (const [lbl, val, isTot] of bridgeRows) {
+    const cls = isTot ? 'total' : '';
+    const vcls = val >= 0 ? 'positive' : 'negative';
+    bridge.innerHTML += `<div class="bridge-row ${cls}">
+      <span class="bridge-label">${lbl}</span>
+      <span class="bridge-val ${cls ? '' : vcls}">R$ ${fM(val)}M</span>
+    </div>`;
+  }
+  bridge.innerHTML += `
+    <div class="bridge-row" style="font-size:13px;color:var(--muted)">
+      <span class="bridge-label indent">÷ ${fM(bf.Shares)}M ações</span>
+      <span></span>
+    </div>
+    <div class="bridge-row final">
+      <span>Valor / ação</span>
+      <span>${fBRL(bf.Valor_acao)}</span>
+    </div>
+    <div class="bridge-row" style="border-top:none;padding-top:4px">
+      <span class="bridge-label" style="font-size:12px">Preço de mercado</span>
+      <span style="font-size:13px;color:var(--muted)">${fBRL(bf.P)}</span>
+    </div>
+  `;
+  container.appendChild(bridge);
+
+  // Checklist
+  if (cl.length) {
+    const st3 = el('div', 'section-title'); st3.textContent = 'Checklist de Validação';
+    container.appendChild(st3);
+    const list = el('ul', 'checklist');
+    for (const item of cl) {
+      const li = el('li', `check-item ${item.ok ? 'check-ok' : 'check-fail'}`);
+      li.innerHTML = `
+        <span class="check-icon">${item.ok ? '✓' : '✗'}</span>
+        <div>
+          <div class="check-nome">${item.nome}</div>
+          <div class="check-detalhe">${item.detalhe}</div>
+        </div>
+      `;
+      list.appendChild(li);
+    }
+    container.appendChild(list);
+  }
+}
+
+// ─── Passo 5 — Sensibilidade ─────────────────────────────────────────────────
+function renderP5(container, d) {
+  if (!d) {
+    container.innerHTML = `
+      <div class="pending-box">
+        <div class="pending-icon">📊</div>
+        <div class="pending-title">Análise de sensibilidade pendente</div>
+        <div class="pending-sub">Execute o pipeline com passo 5 para gerar os cenários.</div>
+      </div>
+    `;
+    return;
+  }
+  // Renderiza conteúdo genérico se passo5 existir
+  container.innerHTML = `<pre style="color:var(--muted);font-size:12px;overflow:auto">${JSON.stringify(d, null, 2)}</pre>`;
+}
+
+// ─── Edição inline ───────────────────────────────────────────────────────────
+function attachEditListeners() {
+  document.querySelectorAll('.editable-wrap').forEach(wrap => {
+    const displayEl = wrap.querySelector('.ev');
+    const editBtn   = wrap.querySelector('.edit-btn');
+    if (!displayEl || !editBtn) return;
+
+    const handler = () => openEdit(wrap, displayEl);
+    displayEl.addEventListener('click', handler);
+    editBtn.addEventListener('click', e => { e.stopPropagation(); openEdit(wrap, displayEl); });
+  });
+}
+
+function openEdit(wrap, displayEl) {
+  if (wrap.querySelector('.edit-input')) return; // já em edição
+
+  const passoN = parseInt(wrap.dataset.passo);  // 1-5
+  const path   = wrap.dataset.path.split('.');
+  const type   = wrap.dataset.type || 'text';
+  const rawVal = getDeep(S.data[passoN - 1], path);
+
+  let inputVal;
+  if (type === 'pct') {
+    inputVal = (rawVal * 100).toFixed(4);
+  } else {
+    inputVal = rawVal != null ? String(rawVal) : '';
+  }
+
+  const input = el('input');
+  input.type = 'text';
+  input.className = 'edit-input';
+  input.value = inputVal;
+
+  const saveBtn   = el('button', 'save-btn', '✓');
+  const cancelBtn = el('button', 'cancel-btn', '✗');
+
+  const origContent = wrap.innerHTML;
+  wrap.innerHTML = '';
+  wrap.append(input, saveBtn, cancelBtn);
+  input.focus();
+  input.select();
+
+  const doSave = async () => {
+    let newVal = input.value.trim().replace(',', '.');
+    if (type === 'number' || type === 'pct') {
+      newVal = parseFloat(newVal);
+      if (isNaN(newVal)) { input.style.borderColor = 'var(--red)'; return; }
+      if (type === 'pct') newVal = newVal / 100;
+    }
+    try {
+      setDeep(S.data[passoN - 1], path, newVal);
+      await savePasso(S.ticker, passoN);
+      wrap.innerHTML = origContent;
+      const newDisplay = wrap.querySelector('.ev');
+      if (newDisplay) {
+        const fmt = type === 'pct' ? fPct2 : type === 'number' ? fM : String;
+        newDisplay.textContent = fmt(newVal);
+      }
+      wrap.classList.add('saved');
+      setTimeout(() => wrap.classList.remove('saved'), 1200);
+      attachEditListeners();
+    } catch {
+      wrap.innerHTML = origContent;
+      wrap.classList.add('error');
+      setTimeout(() => wrap.classList.remove('error'), 1200);
+      attachEditListeners();
+    }
+  };
+
+  const doCancel = () => {
+    wrap.innerHTML = origContent;
+    attachEditListeners();
+  };
+
+  saveBtn.addEventListener('click', doSave);
+  cancelBtn.addEventListener('click', doCancel);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); doSave(); }
+    if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
+  });
+}
+
+// ─── Breadcrumb ──────────────────────────────────────────────────────────────
+function setBreadcrumb(ticker) {
+  const bc = document.getElementById('breadcrumb');
+  if (!ticker) {
+    bc.innerHTML = '';
+    return;
+  }
+  bc.innerHTML = `
+    <a class="back-link" href="#">← Empresas</a>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">${ticker}</span>
+  `;
+}
+</script>
+</body>
+</html>
