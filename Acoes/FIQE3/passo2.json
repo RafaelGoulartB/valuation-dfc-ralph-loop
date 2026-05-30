@@ -1,0 +1,73 @@
+{
+  "parametros_mercado": {
+    "Rf": {
+      "valor": 0.1453,
+      "unidade": "decimal (14.53%)",
+      "fonte": "NTN-B IPCA+ 15 2035 - Tesouro Direto (yield)",
+      "data_consulta": "2026-05-20",
+      "moeda": "BRL"
+    },
+    "ERP": {
+      "valor": 0.0747,
+      "unidade": "decimal (7.47%)",
+      "fonte": "Damodaran — Country Risk Premiums (Equity Risk Premium)",
+      "pais_consultado": "Brazil",
+      "ano_tabela": "2026"
+    },
+    "Beta_u": {
+      "valor": 0.54,
+      "fonte": "Damodaran — Betas by Sector (Global)",
+      "setor_consultado": "Telecom (Wireless)",
+      "coluna": "Unlevered Beta (corrected for cash)",
+      "ano_tabela": "2026"
+    },
+    "Kd_pre": {
+      "valor": 0.1142,
+      "unidade": "decimal (11.42%)",
+      "metodo": "Juros/D",
+      "juros_usados": 74.3,
+      "D_usada": 650.6
+    },
+    "IR_marg": {
+      "valor": 0.34,
+      "unidade": "decimal (34%)",
+      "pais": "Brasil",
+      "composicao": "30% IRPJ (15% + 15% adicional) + 9% CSLL"
+    },
+    "WACC_est": {
+      "valor": 0.1903,
+      "unidade": "decimal (19.03%)",
+      "metodo": "Rf + 4.5% padrão",
+      "justificativa": "14.53% + 4.5% = 19.03%"
+    }
+  },
+  "status_passo2": {
+    "campos_nulos": [],
+    "alertas": [
+      "Kd_pre (11.42%) > Rf (14.53%) é plausível dado o spread de crédito do Brasil (Ba1)"
+    ],
+    "pronto_para_passo3": true
+  },
+  "wacc_calculado": {
+    "Ke": {
+      "valor": 0.1856,
+      "unidade": "decimal (18.56%)",
+      "fonte": "Rf + Beta_u × ERP = 14.53% + 0.54 × 7.47%"
+    },
+    "D_ponderado": {
+      "valor": 0.252,
+      "unidade": "decimal (25.2%)",
+      "fonte": "D / (E + D) = 650.6 / (1930.6 + 650.6)"
+    },
+    "E_ponderado": {
+      "valor": 0.748,
+      "unidade": "decimal (74.8%)",
+      "fonte": "E / (E + D) = 1930.6 / (1930.6 + 650.6)"
+    },
+    "WACC": {
+      "valor": 0.1581,
+      "unidade": "decimal (15.81%)",
+      "fonte": "E/(E+D) × Ke + D/(E+D) × Kd × (1-IR_marg) = 0.748×18.56% + 0.252×11.42%×0.66"
+    }
+  }
+}
