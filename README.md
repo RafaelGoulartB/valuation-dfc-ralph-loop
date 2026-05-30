@@ -92,11 +92,11 @@ Open **http://localhost:8000/Valuation/web/** in your browser.
 **List view** — one card per ticker showing market price vs. intrinsic value, upside/downside badge, and pipeline completion bar.
 
 **Detail view** — accordion with one section per step:
-- **Passo 1**: DRE, balance sheet, and market data tables with confidence indicators
-- **Passo 2**: Cost of capital parameters with source references and alerts
-- **Passo 3**: Assumption cards (growth rates, margins, perpetuity) + analyst narrative
-- **Passo 4**: KPI summary, 10-year FCF projection table with visual bars, equity value bridge, validation checklist, and **Recalcular DCF** button
-- **Passo 5**: Bear/Base/Bull scenario cards and breakeven sensitivity table
+- **Step 1**: DRE, balance sheet, and market data tables with confidence indicators
+- **Step 2**: Cost of capital parameters with source references and alerts
+- **Step 3**: Assumption cards (growth rates, margins, perpetuity) + analyst narrative
+- **Step 4**: KPI summary, 10-year FCF projection table with visual bars, equity value bridge, validation checklist, and **Recalcular DCF** button
+- **Step 5**: Bear/Base/Bull scenario cards and breakeven sensitivity table
 
 All numeric fields are **editable inline** — click any value, type the new number, press Enter to save. The JSON file is updated immediately on disk.
 
