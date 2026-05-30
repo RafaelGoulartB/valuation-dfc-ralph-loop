@@ -8,11 +8,11 @@
 
 | Arquivo | Passo | Função | Input | Output |
 |---|---|---|---|---|
-| `passo1_extracao_release.md` | 1 | Extrair dados do PDF do release | PDF do release | JSON parcial + tabela de lacunas |
-| `passo2_parametros_mercado.md` | 2 | Coletar parâmetros externos (Rf, ERP, Beta, IR_marg) | JSON do Passo 1 + fontes de mercado | JSON complementar de mercado |
-| `passo3_premissas_analista.md` | 3 | Definir premissas futuras com o analista | JSONs dos Passos 1 e 2 | JSON consolidado final (todos os inputs) |
-| `passo4_calculo_dcf.md` | 4 | Executar todos os cálculos DCF | JSON do Passo 3 | Tabelas + valor por ação + diagnóstico |
-| `passo5_sensibilidade_cenarios.md` | 5 *(opcional)* | Análise de sensibilidade e cenários | Resultado do Passo 4 | Matrizes + cenários + conclusão |
+| `step1_release_extraction.md` | 1 | Extrair dados do PDF do release | PDF do release | JSON parcial + tabela de lacunas |
+| `step2_market_parameters.md` | 2 | Coletar parâmetros externos (Rf, ERP, Beta, IR_marg) | JSON do Passo 1 + fontes de mercado | JSON complementar de mercado |
+| `step3_analyst_assumptions.md` | 3 | Definir premissas futuras com o analista | JSONs dos Passos 1 e 2 | JSON consolidado final (todos os inputs) |
+| `step4_dcf_calculation.md` | 4 | Executar todos os cálculos DCF | JSON do Passo 3 | Tabelas + valor por ação + diagnóstico |
+| `step5_sensitivity_scenarios.md` | 5 *(opcional)* | Análise de sensibilidade e cenários | Resultado do Passo 4 | Matrizes + cenários + conclusão |
 | `dcf_valuation_llm_instructions.md` | Referência | Fórmulas completas do modelo | — | Consulta durante o Passo 4 |
 
 ---

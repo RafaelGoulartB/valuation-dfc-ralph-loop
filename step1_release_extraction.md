@@ -1,6 +1,6 @@
 # Passo 1 — Extração do Release
 
-**Objetivo:** ler o PDF do release e produzir `Acoes/<TICKER>/passo1.json` com todos os dados históricos necessários para o valuation DCF.  
+**Objetivo:** ler o PDF do release e produzir `Acoes/<TICKER>/step1.json` com todos os dados históricos necessários para o valuation DCF.  
 **Regra fundamental:** todos os valores financeiros no JSON devem estar em **MILHÕES (R$ M)**.
 
 ---

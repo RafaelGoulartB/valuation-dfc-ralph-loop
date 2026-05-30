@@ -1,7 +1,7 @@
 # Passo 5 — Análise de Sensibilidade e Cenários
 
 **Pré-requisito:** Passo 4 concluído sem falhas no checklist.  
-**Input necessário:** `Valor_acao_base`, `VP_total`, `VP_VT`, `Fator_10`, `NOPAT_term` e todos os inputs do `passo3.json`.
+**Input necessário:** `Valor_acao_base`, `VP_total`, `VP_VT`, `Fator_10`, `NOPAT_term` e todos os inputs do `step3.json`.
 
 ---
 

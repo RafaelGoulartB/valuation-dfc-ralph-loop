@@ -39,7 +39,7 @@ async function fetchTickers() {
 
 async function fetchPasso(ticker, n) {
   try {
-    const r = await fetch(`/Acoes/${ticker}/passo${n}.json?_=${Date.now()}`);
+    const r = await fetch(`/Acoes/${ticker}/step${n}.json?_=${Date.now()}`);
     if (!r.ok) return null;
     return await r.json();
   } catch { return null; }

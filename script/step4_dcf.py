@@ -6,11 +6,11 @@ Le o JSON consolidado do Passo 3 e executa todos os blocos de calculo
 em sequencia estrita (A -> B -> C -> D -> E -> F).
 
 Uso:
-    python passo4_dcf.py <caminho_para_passo3.json> [--output <saida.json>] [--quiet]
+    python step4_dcf.py <caminho_para_step3.json> [--output <saida.json>] [--quiet]
 
 Exemplo:
-    python passo4_dcf.py Acoes/FIQE3/passo3.json
-    python passo4_dcf.py passo4_resultado.json --output resultado.json
+    python step4_dcf.py Acoes/FIQE3/step3.json
+    python step4_dcf.py step4_resultado.json --output resultado.json
 """
 
 import argparse
@@ -777,8 +777,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Exemplos:
-  python passo4_dcf.py Acoes/FIQE3/passo3.json
-  python passo4_dcf.py passo4_resultado.json --output resultado.json
+  python step4_dcf.py Acoes/FIQE3/step3.json
+  python step4_dcf.py step4_resultado.json --output resultado.json
         """
     )
     parser.add_argument(
@@ -814,7 +814,7 @@ Exemplos:
     output_json = {
         "meta": {
             "gerado_em": "",
-            "script": "passo4_dcf.py",
+            "script": "step4_dcf.py",
             "input": str(input_path),
             "empresa": {
                 "nome": result["inp"]["nome"],

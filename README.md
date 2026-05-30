@@ -7,7 +7,7 @@ A local DCF (Discounted Cash Flow) valuation system for Brazilian equities using
 - **5-step pipeline** driven by an AI coding agent (`pi`) — from PDF extraction to sensitivity analysis
 - **Web dashboard** — lists all analyzed tickers, detail view per company with all pipeline steps
 - **Inline editing** — edit any extracted or assumed value directly in the browser; saves back to JSON instantly
-- **One-click recalculation** — after editing passo 1 or 2, hit "Recalcular DCF" in passo 4 to rerun the model
+- **One-click recalculation** — after editing step 1 or 2, hit "Recalcular DCF" in step 4 to rerun the model
 - **Zero frontend dependencies** — vanilla HTML/CSS/JS, served by Python stdlib `http.server`
 
 ## Requirements
@@ -23,16 +23,16 @@ Market/
 ├── Acoes/
 │   └── <TICKER>/
 │       ├── release.pdf          # earnings release (pipeline input)
-│       ├── passo1.json          # extracted financials
-│       ├── passo2.json          # market parameters
-│       ├── passo3.json          # analyst assumptions
-│       ├── passo4.json          # DCF calculation output
-│       └── passo5.json          # sensitivity / scenarios
+│       ├── step1.json           # extracted financials
+│       ├── step2.json           # market parameters
+│       ├── step3.json           # analyst assumptions
+│       ├── step4.json           # DCF calculation output
+│       └── step5.json           # sensitivity / scenarios
 │
 ├── Valuation/
 │   ├── script/
 │   │   ├── valuation_pipeline.py   # pipeline orchestrator
-│   │   └── passo4_dcf.py           # DCF calculation engine
+│   │   └── step4_dcf.py            # DCF calculation engine
 │   ├── web/
 │   │   ├── server.py               # local HTTP server
 │   │   ├── index.html              # SPA shell
@@ -42,7 +42,7 @@ Market/
 │   │   ├── beta-by-sector.md       # Damodaran beta table
 │   │   ├── country-default-spreads-and-risk-premiums.md
 │   │   └── ratings.md              # synthetic rating spreads
-│   └── passo{1-5}_*.md             # step instructions for the AI agent
+│   └── step{1-5}_*.md              # step instructions for the AI agent
 ```
 
 ## Running the Pipeline
@@ -63,7 +63,7 @@ python Valuation/script/valuation_pipeline.py FIQE3 --only 1
 python Valuation/script/valuation_pipeline.py FIQE3 --dry-run
 ```
 
-Steps 1–3 and 5 are handled by the `pi` AI agent. Step 4 runs `passo4_dcf.py` directly as a Python script.
+Steps 1–3 and 5 are handled by the `pi` AI agent. Step 4 runs `step4_dcf.py` directly as a Python script.
 
 ## Running the Dashboard
 
@@ -102,11 +102,11 @@ All numeric fields are **editable inline** — click any value, type the new num
 
 ## Recalculating After Edits
 
-The **▶ Recalcular DCF** button in Passo 4:
-1. Reads current `passo1.json` and propagates financials → `passo3.dados_historicos` / `dados_mercado`
-2. Reads current `passo2.json` and propagates cost of capital → `passo3.parametros_custo_capital`
-3. Saves the updated `passo3.json`
-4. Runs `passo4_dcf.py` and writes the new `passo4.json`
+The **▶ Recalcular DCF** button in Step 4:
+1. Reads current `step1.json` and propagates financials → `step3.dados_historicos` / `dados_mercado`
+2. Reads current `step2.json` and propagates cost of capital → `step3.parametros_custo_capital`
+3. Saves the updated `step3.json`
+4. Runs `step4_dcf.py` and writes the new `step4.json`
 5. Re-renders the dashboard in place — no page reload needed
 
 ## Server API
@@ -114,6 +114,6 @@ The **▶ Recalcular DCF** button in Passo 4:
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/tickers` | List of ticker folders in `Acoes/` |
-| `PUT` | `/api/passo/<ticker>/<n>` | Overwrite `Acoes/<ticker>/passo<n>.json` |
+| `PUT` | `/api/passo/<ticker>/<n>` | Overwrite `Acoes/<ticker>/step<n>.json` |
 | `POST` | `/api/run-passo4/<ticker>` | Propagate edits and rerun the DCF script |
 | `GET` | `/*` | Static file serving from `Market/` root |

@@ -10,7 +10,7 @@ Uso:
 
 Requer: `pi` instalado e acessível no PATH.
 Release em: Acoes/<TICKER>/release.pdf
-Outputs em: Acoes/<TICKER>/passo{N}.json  (passo5 também gera passo5.txt)
+Outputs em: Acoes/<TICKER>/step{N}.json  (step5 também gera step5.txt)
 """
 
 import subprocess
@@ -36,11 +36,11 @@ MARKET     = SCRIPT_DIR.parent.parent          # .../Market
 VAL        = MARKET / "Valuation"
 
 INST = {
-    1: VAL / "passo1_extracao_release.md",
-    2: VAL / "passo2_parametros_mercado.md",
-    3: VAL / "passo3_premissas_analista.md",
-    4: VAL / "passo4_calculo_dcf.md",
-    5: VAL / "passo5_sensibilidade_cenarios.md",
+    1: VAL / "step1_release_extraction.md",
+    2: VAL / "step2_market_parameters.md",
+    3: VAL / "step3_analyst_assumptions.md",
+    4: VAL / "step4_dcf_calculation.md",
+    5: VAL / "step5_sensitivity_scenarios.md",
 }
 
 DATA = {
@@ -49,7 +49,7 @@ DATA = {
     "ratings": VAL / "data" / "ratings.md",
 }
 
-DCF_SCRIPT = SCRIPT_DIR / "passo4_dcf.py"
+DCF_SCRIPT = SCRIPT_DIR / "step4_dcf.py"
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -329,7 +329,7 @@ Execute as FASES 1 a 5 internamente.
 Execute a FASE 6 e produza o JSON de saída.
 
 IMPORTANTE: use sua ferramenta de escrita de arquivos para salvar o JSON
-exatamente no arquivo `passo1.json` no diretorio atual.
+exatamente no arquivo `step1.json` no diretorio atual.
 O JSON deve seguir o template da FASE 6. Nenhum campo pode ser omitido.
 
 --------------------------------------------
@@ -338,13 +338,13 @@ CONTEUDO DO RELEASE (extraido do PDF):
 {pdf_content}
 """
     raw = run_pi(prompt, cwd=acoes, dry_run=dry_run)
-    data = read_pi_output(raw, target=acoes / "passo1.json", acoes=acoes)
-    save_json(data, acoes / "passo1.json")
+    data = read_pi_output(raw, target=acoes / "step1.json", acoes=acoes)
+    save_json(data, acoes / "step1.json")
 
 
 def passo2(acoes: Path, ticker: str, dry_run: bool):
     sep("PASSO 2 — Parâmetros de Mercado")
-    p1 = txt(acoes / "passo1.json")
+    p1 = txt(acoes / "step1.json")
     instructions = txt(INST[2])
     erp  = txt(DATA["erp"])
     beta = txt(DATA["beta"])
@@ -356,7 +356,7 @@ def passo2(acoes: Path, ticker: str, dry_run: bool):
 DADOS DE ENTRADA
 --------------------------------------------
 
-## passo1.json (dados históricos extraídos do release):
+## step1.json (dados históricos extraídos do release):
 ```json
 {p1}
 ```
@@ -377,22 +377,22 @@ Ticker: {ticker}
 
 Execute os itens 2.1 a 2.6 usando os dados acima.
 Para Rf (item 2.1): como não há acesso à internet, use o valor mais recente de Rf
-implícito nos dados (se disponível no passo1.json) ou registre como PENDENTE.
+implícito nos dados (se disponível no step1.json) ou registre como PENDENTE.
 Se Kd_pre < Rf: tente o método alternativo (rating sintético) antes de marcar BLOQUEADOR.
 
 IMPORTANTE: use sua ferramenta de escrita de arquivos para salvar o JSON
-exatamente no arquivo `passo2.json` no diretorio atual.
+exatamente no arquivo `step2.json` no diretorio atual.
 O JSON deve seguir o template do JSON de saída do Passo 2. Nenhum campo pode ser omitido.
 """
     raw = run_pi(prompt, cwd=acoes, dry_run=dry_run)
-    data = read_pi_output(raw, target=acoes / "passo2.json", acoes=acoes)
-    save_json(data, acoes / "passo2.json")
+    data = read_pi_output(raw, target=acoes / "step2.json", acoes=acoes)
+    save_json(data, acoes / "step2.json")
 
 
 def passo3(acoes: Path, ticker: str, dry_run: bool):
     sep("PASSO 3 — Premissas do Analista")
-    p1 = txt(acoes / "passo1.json")
-    p2 = txt(acoes / "passo2.json")
+    p1 = txt(acoes / "step1.json")
+    p2 = txt(acoes / "step2.json")
     instructions = txt(INST[3])
     erp  = txt(DATA["erp"])
     beta = txt(DATA["beta"])
@@ -403,12 +403,12 @@ def passo3(acoes: Path, ticker: str, dry_run: bool):
 DADOS DE ENTRADA
 --------------------------------------------
 
-## passo1.json:
+## step1.json:
 ```json
 {p1}
 ```
 
-## passo2.json:
+## step2.json:
 ```json
 {p2}
 ```
@@ -433,21 +433,21 @@ Você está operando sem analista disponível.
 4. Preencha "narrativa_premissas" com frases curtas justificando as escolhas.
 
 IMPORTANTE: use sua ferramenta de escrita de arquivos para salvar o JSON
-exatamente no arquivo `passo3.json` no diretorio atual.
+exatamente no arquivo `step3.json` no diretorio atual.
 O JSON deve seguir o template do JSON de saída do Passo 3. Nenhum campo pode ser omitido.
 """
     raw = run_pi(prompt, cwd=acoes, dry_run=dry_run)
-    data = read_pi_output(raw, target=acoes / "passo3.json", acoes=acoes)
-    save_json(data, acoes / "passo3.json")
+    data = read_pi_output(raw, target=acoes / "step3.json", acoes=acoes)
+    save_json(data, acoes / "step3.json")
 
 
 def passo4(acoes: Path, ticker: str, dry_run: bool):
     sep("PASSO 4 — Cálculo DCF (script Python)")
-    p3_json = acoes / "passo3.json"
-    p4_json = acoes / "passo4.json"
+    p3_json = acoes / "step3.json"
+    p4_json = acoes / "step4.json"
 
     if not p3_json.exists():
-        abort(f"passo3.json não encontrado: {p3_json}")
+        abort(f"step3.json não encontrado: {p3_json}")
     if not DCF_SCRIPT.exists():
         abort(f"Script DCF não encontrado: {DCF_SCRIPT}")
 
@@ -460,18 +460,18 @@ def passo4(acoes: Path, ticker: str, dry_run: bool):
 
     result = subprocess.run(cmd, text=True)
     if result.returncode != 0:
-        abort(f"passo4_dcf.py falhou com código {result.returncode}")
-    log(f"[OK] Salvo: Acoes/{ticker}/passo4.json")
+        abort(f"step4_dcf.py falhou com código {result.returncode}")
+    log(f"[OK] Salvo: Acoes/{ticker}/step4.json")
 
 
 def passo5(acoes: Path, ticker: str, dry_run: bool):
     sep("PASSO 5 — Sensibilidade e Cenários")
     if dry_run:
-        log("[DRY-RUN] Passo 5 - leria passo3.json + passo4.json e chamaria pi.")
-        log("[DRY-RUN] Salvaria passo5.txt e passo5.json")
+        log("[DRY-RUN] Passo 5 - leria step3.json + step4.json e chamaria pi.")
+        log("[DRY-RUN] Salvaria step5.txt e step5.json")
         return
-    p3 = txt(acoes / "passo3.json")
-    p4 = txt(acoes / "passo4.json")
+    p3 = txt(acoes / "step3.json")
+    p4 = txt(acoes / "step4.json")
     instructions = txt(INST[5])
 
     prompt = f"""{instructions}
@@ -480,12 +480,12 @@ def passo5(acoes: Path, ticker: str, dry_run: bool):
 DADOS DE ENTRADA
 --------------------------------------------
 
-## passo3.json (premissas base):
+## step3.json (premissas base):
 ```json
 {p3}
 ```
 
-## passo4.json (resultado DCF base):
+## step4.json (resultado DCF base):
 ```json
 {p4}
 ```
@@ -518,21 +518,21 @@ Ao final da resposta, inclua este bloco JSON com os dados numéricos chave:
 }}
 ```
 Preencha todos os campos null com os valores calculados.
-Use sua ferramenta de escrita para salvar a analise completa em `passo5.txt`
-e o JSON resumido em `passo5.json` no diretorio atual.
+Use sua ferramenta de escrita para salvar a analise completa em `step5.txt`
+e o JSON resumido em `step5.json` no diretorio atual.
 """
     raw = run_pi(prompt, cwd=acoes, dry_run=dry_run)
 
     # Salvar stdout como fallback (pi pode ter escrito direto em disco)
     if raw.strip():
-        save_text(raw, acoes / "passo5_raw.txt")
+        save_text(raw, acoes / "step5_raw.txt")
 
     # Ler o que pi salvou (ou fallback para stdout)
     try:
-        data = read_pi_output(raw, target=acoes / "passo5.json", acoes=acoes)
-        save_json(data, acoes / "passo5.json")
+        data = read_pi_output(raw, target=acoes / "step5.json", acoes=acoes)
+        save_json(data, acoes / "step5.json")
     except (ValueError, json.JSONDecodeError):
-        log("! JSON do passo5 nao extraido — ver passo5.txt ou passo5_raw.txt")
+        log("! JSON do passo5 nao extraido — ver step5.txt ou step5_raw.txt")
 
 
 # ─── Orquestrador ────────────────────────────────────────────────────────────

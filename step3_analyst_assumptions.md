@@ -1,7 +1,7 @@
 # Passo 3 — Premissas do Analista
 
-**Pré-requisito:** `passo1.json` e `passo2.json` completos, ambos com `pronto_para_passoN: true`.  
-**Objetivo:** consolidar todos os inputs e definir as premissas futuras. Produzir `passo3.json` com zero nulos.  
+**Pré-requisito:** `step1.json` e `step2.json` completos, ambos com `pronto_para_passoN: true`.  
+**Objetivo:** consolidar todos os inputs e definir as premissas futuras. Produzir `step3.json` com zero nulos.  
 **Fluxo:** para cada premissa, apresentar âncora histórica + proposta → aguardar confirmação do analista → registrar.
 
 ---

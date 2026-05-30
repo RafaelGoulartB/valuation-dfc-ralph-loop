@@ -1,6 +1,6 @@
 # Passo 2 — Parâmetros de Mercado
 
-**Pré-requisito:** `passo1.json` completo, sem campos PENDENTE nos blocos dre/balanco/mercado.  
+**Pré-requisito:** `step1.json` completo, sem campos PENDENTE nos blocos dre/balanco/mercado.  
 **Objetivo:** coletar os 6 parâmetros externos para calcular o WACC.  
 **Regra:** nenhum valor estimado sem fonte. Se não conseguir obter: marcar `PENDENTE` e solicitar ao usuário.
 
@@ -27,7 +27,7 @@ Rf = ____   Fonte: ________________   Data: ________
 Fonte: arquivo `Valuation/data/country-default-spreads-and-risk-premiums.md`
 
 Procedimento:
-1. Localizar o país de `empresa.pais` do passo1.json
+1. Localizar o país de `empresa.pais` do step1.json
 2. Copiar o valor da coluna **"Equity Risk Premium"** (ERP total = base EUA + Country Risk Premium)
 3. Se o país não estiver listado individualmente: usar o ERP da região (ex: "Latin America")
 
@@ -42,7 +42,7 @@ ERP = ____   País consultado: ________________   Ano da tabela: ____
 Fonte: arquivo `Valuation/data/beta-by-sector.md`
 
 Procedimento:
-1. Identificar o setor em `empresa.setor` do passo1.json
+1. Identificar o setor em `empresa.setor` do step1.json
 2. Localizar o setor mais próximo na tabela
 3. Copiar o valor da coluna **"Unlevered Beta corrected for cash"**
 4. Se não houver correspondência exata: registrar o setor usado e a justificativa
@@ -55,7 +55,7 @@ Beta_u = ____   Setor consultado: ________________   Setor da empresa: _________
 
 ## 2.4 — Kd_pre (Custo Pré-Imposto da Dívida)
 
-**Cálculo principal** (usar os valores do passo1.json):
+**Cálculo principal** (usar os valores do step1.json):
 
 ```
 Juros = passo1.dre.Juros.valor  = ___ M

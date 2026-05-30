@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT       = Path(__file__).parent.parent.parent          # .../Market
 ACOES      = ROOT / "Acoes"
-DCF_SCRIPT = Path(__file__).parent.parent / "script" / "passo4_dcf.py"
+DCF_SCRIPT = Path(__file__).parent.parent / "script" / "step4_dcf.py"
 PORT       = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
 
 
@@ -44,7 +44,7 @@ class DashHandler(http.server.SimpleHTTPRequestHandler):
             raw = self.rfile.read(length)
             try:
                 data = json.loads(raw)
-                target = ACOES / ticker / f"passo{n}.json"
+                target = ACOES / ticker / f"step{n}.json"
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(
                     json.dumps(data, ensure_ascii=False, indent=2),
@@ -72,13 +72,13 @@ class DashHandler(http.server.SimpleHTTPRequestHandler):
 
     def _run_passo4(self, ticker):
         acoes  = ACOES / ticker
-        p1_path = acoes / "passo1.json"
-        p2_path = acoes / "passo2.json"
-        p3_path = acoes / "passo3.json"
-        p4_path = acoes / "passo4.json"
+        p1_path = acoes / "step1.json"
+        p2_path = acoes / "step2.json"
+        p3_path = acoes / "step3.json"
+        p4_path = acoes / "step4.json"
 
         if not p3_path.exists():
-            self._send_json({"ok": False, "error": "passo3.json não encontrado"}, status=400)
+            self._send_json({"ok": False, "error": "step3.json não encontrado"}, status=400)
             return
 
         p3 = json.loads(p3_path.read_text(encoding="utf-8"))
@@ -129,7 +129,7 @@ class DashHandler(http.server.SimpleHTTPRequestHandler):
         # Salva passo3 atualizado
         p3_path.write_text(json.dumps(p3, ensure_ascii=False, indent=2), encoding="utf-8")
 
-        # Roda passo4_dcf.py
+        # Roda step4_dcf.py
         if not DCF_SCRIPT.exists():
             self._send_json({"ok": False, "error": f"Script não encontrado: {DCF_SCRIPT}"}, status=500)
             return
@@ -153,7 +153,7 @@ class DashHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if not p4_path.exists():
-            self._send_json({"ok": False, "error": "passo4.json não foi gerado"}, status=500)
+            self._send_json({"ok": False, "error": "step4.json não foi gerado"}, status=500)
             return
 
         p4 = json.loads(p4_path.read_text(encoding="utf-8"))

@@ -21,9 +21,9 @@ Ao receber esse comando, leia `Acoes/<TICKER>/progress.txt` para saber em qual p
 ```
 Acoes/<TICKER>/
 ├── release.pdf       ← PDF enviado pelo usuário
-├── passo1.json       ← Output do Passo 1
-├── passo2.json       ← Output do Passo 2
-├── passo3.json       ← Output do Passo 3 (input do script Python)
+├── step1.json       ← Output do Passo 1
+├── step2.json       ← Output do Passo 2
+├── step3.json       ← Output do Passo 3 (input do script Python)
 └── progress.txt      ← Estado do pipeline
 ```
 
@@ -45,19 +45,19 @@ Cada passo tem um arquivo de instrução na pasta atual. Leia o arquivo correspo
 
 | Passo | Arquivo de instrução | Input | Output |
 |---|---|---|---|
-| 1 | `passo1_extracao_release.md` | `release.pdf` | `Acoes/<TICKER>/passo1.json` |
-| 2 | `passo2_parametros_mercado.md` | `passo1.json` | `Acoes/<TICKER>/passo2.json` |
-| 3 | `passo3_premissas_analista.md` | `passo1.json` + `passo2.json` | `Acoes/<TICKER>/passo3.json` |
-| 4 | Script Python — não executar | `passo3.json` | — |
+| 1 | `step1_release_extraction.md` | `release.pdf` | `Acoes/<TICKER>/step1.json` |
+| 2 | `step2_market_parameters.md` | `step1.json` | `Acoes/<TICKER>/step2.json` |
+| 3 | `step3_analyst_assumptions.md` | `step1.json` + `step2.json` | `Acoes/<TICKER>/step3.json` |
+| 4 | Script Python — não executar | `step3.json` | — |
 
-**Ao concluir cada passo:** salve o JSON em `Acoes/<TICKER>/passoN.json` e atualize `progress.txt`.
+**Ao concluir cada passo:** salve o JSON em `Acoes/<TICKER>/stepN.json` e atualize `progress.txt`.
 
 **Passo 4 não é executado por você.** Ao concluir o Passo 3, informe ao usuário:
 
 ```
 ✓ Pipeline concluído até o Passo 3.
 Para executar o cálculo DCF:
-  python passo4_dcf.py Acoes/<TICKER>/passo3.json
+  python step4_dcf.py Acoes/<TICKER>/step3.json
 ```
 
 ---

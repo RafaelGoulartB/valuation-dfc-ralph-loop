@@ -2,7 +2,7 @@
 
 > **Este passo é executado pelo script Python:**
 > ```
-> python Valuation/passo4_dcf.py Acoes/<TICKER>/passo3.json --output Acoes/<TICKER>/passo4.json
+> python Valuation/script/step4_dcf.py Acoes/<TICKER>/step3.json --output Acoes/<TICKER>/step4.json
 > ```
 > O script executa todos os cálculos e gera o relatório. Este arquivo é referência de fórmulas e formato de output para interpretação e validação dos resultados.
 
