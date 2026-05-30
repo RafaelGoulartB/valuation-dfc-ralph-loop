@@ -544,6 +544,46 @@ def executar_dcf(input_path: str) -> dict:
              f"Valor_acao = {fmt(f['Valor_acao'],2)}",
              ok, falhas)
 
+    # ---- Sanidade de unidades e consistencia dos inputs ----
+    if inp["D"] > 0:
+        verifica(inp["Kd_pre"] >= inp["Rf"],
+                 "Sanidade: Kd_pre >= Rf",
+                 f"Kd_pre={pct(inp['Kd_pre'])} vs Rf={pct(inp['Rf'])}" + (
+                     " !! custo da divida abaixo do Rf -- revisar Kd_pre no Passo 3"
+                     if inp["Kd_pre"] < inp["Rf"] else ""
+                 ),
+                 ok, falhas)
+
+    if inp["Rev_0"] > 0:
+        psales = a["MktCap"] / inp["Rev_0"]
+        verifica(psales <= 100,
+                 "Sanidade: MktCap/Rev_0 <= 100x",
+                 f"MktCap/Rev_0 = {fmt(psales, 1)}x" + (
+                     " !! POSSIVEL ERRO DE UNIDADE: Rev_0 muito baixa vs MktCap"
+                     if psales > 100 else ""
+                 ),
+                 ok, falhas)
+
+    if inp["D"] > 0:
+        d_ratio = inp["D"] / a["MktCap"]
+        verifica(d_ratio >= 0.001,
+                 "Sanidade: D/MktCap >= 0.1%",
+                 f"D/MktCap = {pct(d_ratio, 3)}" + (
+                     " !! POSSIVEL ERRO DE UNIDADE: D muito baixa vs MktCap"
+                     if d_ratio < 0.001 else ""
+                 ),
+                 ok, falhas)
+
+    if f["Valor_acao"] > 0 and inp["P"] > 0:
+        ratio_pv = inp["P"] / f["Valor_acao"]
+        verifica(0.05 <= ratio_pv <= 20,
+                 "Sanidade: P/Valor_acao entre 0.05x e 20x",
+                 f"P/Valor_acao = {fmt(ratio_pv, 2)}x" + (
+                     " !! POSSIVEL ERRO DE UNIDADE nos inputs financeiros"
+                     if not (0.05 <= ratio_pv <= 20) else ""
+                 ),
+                 ok, falhas)
+
     return {
         "inp": inp,
         "a": a,
@@ -704,6 +744,15 @@ def imprimir_resultado(result: dict) -> str:
     for nome, det in falhas:
         L(f"  [XX] {nome}  <- FALHOU")
         L(f"      -> {det}")
+
+    # Alerta critico se houver suspeita de erro de unidade
+    if any("ERRO DE UNIDADE" in det for _, det in falhas):
+        L("")
+        L("  !! ALERTA CRITICO: POSSIVEL ERRO DE UNIDADE nos inputs!")
+        L(f"  Certifique-se de que Rev_0, D, Caixa, AtvNOp e MinInt estao em {inp['unidade']}")
+        L(f"  (mesma escala de P x Shares = MktCap = {fmt(a['MktCap'], 1)} {inp['unidade']}).")
+        L("  Exemplo: se Shares=399.087 (M) e P=7.01, MktCap=2.797,6 M,")
+        L("  entao Rev_0=1186 (M), D=650 (M), Caixa=260 (M) -- NAO 1.186, 0.65, 0.26.")
 
     L("")
     L("=" * 80)

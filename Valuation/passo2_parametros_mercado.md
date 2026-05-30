@@ -123,17 +123,36 @@ Onde:
   D     = dívida financeira total (campo balanco.D do JSON do Passo 1)
 ```
 
+**CÁLCULO OBRIGATÓRIO — mostrar os números reais antes de registrar:**
+
+```
+Juros (do Passo 1) = ___ M   ← copiar de dre.Juros
+D     (do Passo 1) = ___ M   ← copiar de balanco.D
+Kd_pre = ___ / ___ = ____%
+
+Rf (do Item 2.1)   = ____%
+Kd_pre > Rf?       → SIM | NÃO
+```
+
 **Verificações:**
 
 ```
 SE Kd_pre < Rf:
-  → Resultado improvável. Verificar se Juros inclui apenas juros de dívida financeira
-    (excluindo variação cambial, multas, juros sobre impostos)
-  → Se confirmado, pode indicar dívida subsidiada — registrar e aceitar
+  → BLOQUEADOR — não avançar para o Passo 3.
+    O custo da dívida abaixo da taxa livre de risco é financeiramente impossível
+    em condições normais de mercado.
+  → Verificar OBRIGATORIAMENTE (em ordem):
+    1. Os valores de Juros e D foram copiados corretamente do Passo 1?
+       (Confirmar que ambos estão em MILHÕES — mesma unidade)
+    2. O campo Juros inclui APENAS juros de dívida financeira?
+       (Excluir: variação cambial, multas, juros sobre impostos, resultado de hedge)
+    3. O campo D inclui dívida completa (curto prazo + longo prazo)?
+    4. Se a empresa tem benefício fiscal de dívida subsidiada (ex: BNDES),
+       registrar explicitamente e exigir confirmação do usuário antes de avançar.
 
 SE Kd_pre > Rf + 10%:
   → Empresa pode estar em situação de stress. Verificar rating de crédito.
-  → Registrar como alerta para o Passo 3 (premissas de falência)
+  → Registrar como alerta para o Passo 3 (premissas de falência).
 
 SE D = 0:
   → Empresa sem dívida. Kd_pre = Rf (convenção). W_debt = 0. WACC = Ke.
@@ -144,7 +163,7 @@ SE D = 0:
 ```
 Opção A: buscar o custo médio ponderado da dívida no release (às vezes divulgado)
 Opção B: usar rating sintético de Damodaran
-  FILE: Verifique na pasta Valuation/data/beta-by-sector.md
+  FILE: Verifique na pasta Valuation/data/ratings.md
   → Calcular índice de cobertura de juros: EBIT / Juros
   → Localizar o spread correspondente na tabela
   → Kd_pre = Rf + Spread
@@ -152,11 +171,12 @@ Opção B: usar rating sintético de Damodaran
 
 **Anotações obrigatórias:**
 ```
-Kd_pre = ____%
+Juros_passo1 = ___ M   (de dre.Juros do JSON Passo 1)
+D_passo1     = ___ M   (de balanco.D do JSON Passo 1)
+Kd_pre       = ___ / ___ = ____%
 Método: Juros/D | Rating sintético | Divulgado no release
-Juros utilizados: ____ M
-D utilizada: ____ M
-Índice de cobertura (EBIT/Juros): _____
+Índice de cobertura (EBIT/Juros): _____ × (registrar para referência do Passo 3)
+Kd_pre > Rf? → SIM | NÃO  (se NÃO: ver bloqueador acima)
 Observações: ________________
 ```
 

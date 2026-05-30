@@ -38,6 +38,20 @@ Para cada item abaixo, tente localizar o valor no documento. Registre:
 
 ---
 
+### REGRA FUNDAMENTAL DE UNIDADES
+
+> **Todos os valores numéricos no JSON de saída devem estar em MILHÕES (R$ M)**, independentemente de como a empresa reporta no release.
+
+| Se o release reporta em... | Exemplo no release | Valor a registrar no JSON |
+|---|---|---|
+| R$ milhares (mil) | 1.185.600 | 1.185,6 (÷ 1.000) |
+| R$ milhões (M) | 1.185,6 | 1.185,6 (usar diretamente) |
+| R$ bilhões (B ou Bi) | 1,186 | 1.186,0 (× 1.000) |
+
+**Verificação de escala obrigatória:** `MktCap (P × Shares)` e `Rev_0` devem ser da mesma ordem de grandeza. Para uma empresa industrial/telecom/varejo, a razão MktCap/Rev_0 tipicamente fica entre 0,3× e 15×. Se o resultado for > 20×, há quase certeza de erro de unidade em Rev_0.
+
+---
+
 ### BLOCO A — Dados da DRE (Demonstração de Resultado)
 
 **A1. Receita Líquida**
@@ -234,6 +248,38 @@ Registrar apenas se o setor usar métricas específicas de valor:
 - Bancos: carteira de crédito, NIM, inadimplência
 Estas métricas auxiliam a narrativa do analista, não os cálculos do DCF.
 ```
+
+---
+
+## VERIFICAÇÕES DE CONSISTÊNCIA (executar antes da Fase 3)
+
+Antes de produzir o JSON, calcule e verifique cada item abaixo. Inclua os números reais — não apenas "OK".
+
+```
+[ ] 1. Mg_atual = EBIT_0 / Rev_0 = ___ / ___ = ____%
+        (usar EBIT operacional, NÃO EBITDA)
+        Se Mg_atual > 40%: verificar se o numerador é EBIT ou EBITDA — são diferentes.
+        Registrar: Mg_atual = ____
+
+[ ] 2. MktCap_calc = P × Shares = ___ × ___ = ___ M
+        MktCap encontrado no release = ___ M
+        Diferença: ___% → aceitável se < 5% (pode haver diferença de data de cotação)
+        Se > 5%: verificar qual Shares foi usado (total, circulante, excl. tesouraria)
+
+[ ] 3. D_liq_calc = D − Caixa = ___ − ___ = ___ M
+        D_liq encontrada no release = ___ M
+        Diferença: ___% → deve ser < 2%. Se divergir, registrar o motivo.
+
+[ ] 4. IR_ef = IR_pago / LAIR = ___ / ___ = ____%
+        Esperado para empresas brasileiras: entre 15% e 40%.
+        Se IR_ef < 0 ou > 50%: revisar os valores de IR_pago e LAIR.
+
+[ ] 5. Verificação de escala: MktCap / Rev_0 = ___ / ___ = ___×
+        Se > 20×: PARAR — muito provável erro de unidade em Rev_0.
+        Exemplo correto: MktCap = 1.930 M, Rev_0 = 1.185 M → razão = 1,6× ✓
+```
+
+Se qualquer verificação falhar, corrigir antes de produzir o JSON de saída.
 
 ---
 

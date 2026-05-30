@@ -19,6 +19,75 @@ O analista (usuário) toma a decisão final. A LLM apresenta as referências, ca
 
 ---
 
+## BLOCO 0 — CONSOLIDAÇÃO E VERIFICAÇÃO DE UNIDADES
+
+> **Execute este bloco COMPLETAMENTE antes de discutir qualquer premissa.**
+> Se qualquer verificação falhar, corrija os dados antes de avançar. Premissas calibradas sobre dados errados são inválidas.
+
+### 0.1 — Copiar dados históricos do Passo 1
+
+Transcreva os valores **exatos** do JSON do Passo 1, campo a campo. Todos os valores financeiros devem estar em **MILHÕES (R$ M)** — mesma unidade declarada em `empresa.unidade`.
+
+| Campo | Valor do JSON Passo 1 | Unidade esperada |
+|---|---|---|
+| Rev_0 | | R$ milhões |
+| EBIT_0 | | R$ milhões |
+| Juros | | R$ milhões |
+| D | | R$ milhões |
+| Caixa | | R$ milhões |
+| MinInt | | R$ milhões |
+| PL | | R$ milhões |
+| AtvNOp | | R$ milhões |
+| Shares | | Milhões de ações |
+| P | | R$/ação |
+| MktCap | | R$ milhões |
+| IR_ef | | Decimal (ex: 0.28) |
+
+### 0.2 — Copiar parâmetros de mercado do Passo 2
+
+| Campo | Valor do JSON Passo 2 | Unidade esperada |
+|---|---|---|
+| Rf | | Decimal |
+| ERP | | Decimal |
+| Beta_u | | Número |
+| Kd_pre | | Decimal |
+| IR_marg | | Decimal |
+| WACC_est | | Decimal |
+
+### 0.3 — Verificações cruzadas de integridade (TODAS devem passar antes de avançar)
+
+```
+[ ] A. MktCap_calc = P × Shares = ___ × ___ = ___ M
+        MktCap do Passo 1 = ___ M
+        Diferença: ___% → deve ser < 5%
+        Resultado: OK | FALHOU (se falhou: verificar Shares — total vs. circulante)
+
+[ ] B. D_liq_calc = D − Caixa = ___ − ___ = ___ M
+        D_liq do Passo 1 = ___ M
+        Diferença: ___% → deve ser < 2%
+        Resultado: OK | FALHOU
+
+[ ] C. Kd_pre_calc = Juros / D = ___ / ___ = ____%
+        Kd_pre do Passo 2 = ____%
+        São iguais (diferença < 0,1%)? → OK | DIVERGÊNCIA
+        (Se divergirem: usar o Passo 2 como referência e registrar o motivo)
+
+[ ] D. Kd_pre (___%) > Rf (___%)
+        Resultado: OK | BLOQUEADOR
+        (Se Kd_pre < Rf: não avançar — ver Item 2.4 do Passo 2)
+
+[ ] E. Ratio de escala: MktCap / Rev_0 = ___ / ___ = ___×
+        Referência: entre 0,3× e 15× é normal para a maioria dos setores.
+        Se > 20×: PARAR — provável erro de unidade em Rev_0 ou outros dados.
+        Resultado: OK (___×) | ALERTA (___× — verificar unidade de Rev_0)
+
+[ ] F. D / MktCap = ___ / ___ = ___%
+        Se D > 0 e D/MktCap < 1%: PARAR — provável erro de unidade em D.
+        Resultado: OK (__%) | ALERTA (< 1% — verificar unidade de D)
+```
+
+---
+
 ## PREMISSA 3.1 — Crescimento de Receita no Ano 1 (`g1`)
 
 **Referência histórica (do Passo 1):**
@@ -318,6 +387,15 @@ Sigma  = ____
 
 Antes de produzir o JSON final, execute estas verificações:
 
+**Integridade dos dados (Bloco 0):**
+```
+[ ] Bloco 0 executado e todas as verificações A–F passaram
+[ ] Nenhum valor de dados_historicos foi alterado em relação ao Passo 1
+[ ] Nenhum valor de parametros_custo_capital foi alterado em relação ao Passo 2
+[ ] Kd_pre > Rf confirmado               → OK | VIOLAÇÃO
+```
+
+**Consistência entre premissas:**
 ```
 [ ] g_perp ≤ Rf                          → OK | VIOLAÇÃO
 [ ] WACC_est > g_perp                     → OK | VIOLAÇÃO
@@ -326,6 +404,15 @@ Antes de produzir o JSON final, execute estas verificações:
 [ ] Receita projetada no Ano 10 é crível para o tamanho do mercado
 [ ] Ano_conv entre 1 e 10                 → OK | FORA DO RANGE
 [ ] P_fail entre 0 e 1                    → OK | FORA DO RANGE
+```
+
+**Cálculo de referência obrigatório:**
+```
+Receita projetada Ano 10 = Rev_0 × (1+g1) × (1+g2_5)^4 × produto de g(t) t=6..10
+Estimativa rápida (assumindo g2_5 até ano 5, g_perp a partir do 6):
+  Rev_Ano5  ≈ ___ × (1+g1) × (1+g2_5)^4 = ___ M
+  Rev_Ano10 ≈ ___ M (aplicar decaimento linear até g_perp)
+Faz sentido para o mercado endereçável da empresa? → SIM | REVISAR
 ```
 
 ---
@@ -346,6 +433,7 @@ Salvar json em pasta Acoes/:ticker/:passo.json
     "moeda": "...",
     "unidade": "milhões"
   },
+  "_INSTRUCAO_UNIDADE": "Todos os valores em dados_historicos e dados_mercado devem estar em MILHOES (R$ M). Copiar exatamente do Passo 1. Nao converter, nao arredondar, nao mudar escala.",
   "dados_historicos": {
     "Rev_0":    null,
     "EBIT_0":   null,
@@ -395,12 +483,17 @@ Salvar json em pasta Acoes/:ticker/:passo.json
     "perpetuidade":"..."
   },
   "validacoes": {
-    "g_perp_menor_Rf":          null,
-    "WACC_est_maior_g_perp":    null,
-    "ROIC_alvo_maior_WACC":     null,
-    "receita_ano10_crivel":     null,
-    "campos_nulos_restantes":   [],
-    "pronto_para_passo4":       false
+    "bloco0_MktCap_vs_PxShares": null,
+    "bloco0_D_liq_consistente":  null,
+    "bloco0_Kd_pre_maior_Rf":    null,
+    "bloco0_escala_MktCap_Rev":  null,
+    "bloco0_D_MktCap_ratio":     null,
+    "g_perp_menor_Rf":           null,
+    "WACC_est_maior_g_perp":     null,
+    "ROIC_alvo_maior_WACC":      null,
+    "receita_ano10_crivel":      null,
+    "campos_nulos_restantes":    [],
+    "pronto_para_passo4":        false
   }
 }
 ```
