@@ -1,7 +1,10 @@
 // ─── State ───────────────────────────────────────────────────────────────────
 const S = {
   ticker: null,
-  data: [null, null, null, null, null]  // passos[0..4]
+  data: [null, null, null, null, null],  // passos[0..4]
+  listSort:   { field: 'date', dir: -1 },
+  listSearch: '',
+  listCards:  []
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -73,36 +76,39 @@ async function renderList() {
   setBreadcrumb(null);
   app().innerHTML = '<div class="loading"><div class="spinner"></div>Carregando empresas...</div>';
 
-  let tickers;
-  try { tickers = await fetchTickers(); }
+  let metas;
+  try { metas = await fetchTickers(); }
   catch { app().innerHTML = '<div class="empty">Erro ao conectar ao servidor.</div>'; return; }
 
-  if (!tickers.length) {
+  if (!metas.length) {
     app().innerHTML = '<div class="empty">Nenhuma empresa encontrada em Acoes/</div>';
     return;
   }
 
-  const cards = await Promise.all(tickers.map(async t => {
-    const passos = await Promise.all([1,2,3,4,5].map(n => fetchPasso(t, n)));
-    return { ticker: t, passos };
+  const cards = await Promise.all(metas.map(async (meta) => {
+    const ticker = typeof meta === 'string' ? meta : meta.ticker;
+    const mtime  = typeof meta === 'string' ? 0   : (meta.mtime || 0);
+    const passos = await Promise.all([1,2,3,4,5].map(n => fetchPasso(ticker, n)));
+    return { ticker, mtime, passos };
   }));
+
+  S.listCards = cards;
 
   const frag = document.createDocumentFragment();
   const header = el('div', 'list-header');
-  header.innerHTML = `<h1>Empresas analisadas</h1><p>${tickers.length} empresa${tickers.length !== 1 ? 's' : ''} encontrada${tickers.length !== 1 ? 's' : ''} em Acoes/</p>`;
+  header.innerHTML = `<h1>Empresas analisadas</h1><p>${metas.length} empresa${metas.length !== 1 ? 's' : ''} encontrada${metas.length !== 1 ? 's' : ''} em Acoes/</p>`;
   frag.appendChild(header);
-
+  frag.appendChild(buildListControls());
   const grid = el('div', 'ticker-grid');
-  for (const { ticker, passos } of cards) {
-    grid.appendChild(buildCard(ticker, passos));
-  }
+  grid.id = 'ticker-grid';
   frag.appendChild(grid);
 
   app().innerHTML = '';
   app().appendChild(frag);
+  renderCards();
 }
 
-function buildCard(ticker, passos) {
+function buildCard(ticker, mtime, passos) {
   const [p1, , , p4] = passos;
   const nome   = p1?.empresa?.nome  || ticker;
   const setor  = p1?.empresa?.setor || '—';
@@ -120,6 +126,7 @@ function buildCard(ticker, passos) {
 
   const done = passos.filter(Boolean).length;
   const stepsHtml = passos.map(p => `<div class="pipeline-step ${p ? 'done' : ''}"></div>`).join('');
+  const dateStr = mtime ? new Date(mtime * 1000).toLocaleDateString('pt-BR') : null;
 
   const a = el('a', 'ticker-card');
   a.href = '#' + ticker;
@@ -142,8 +149,94 @@ function buildCard(ticker, passos) {
     </div>
     <div class="pipeline-steps">${stepsHtml}</div>
     <div class="pipeline-label">Pipeline: ${done}/5 passos concluídos</div>
+    ${dateStr ? `<div class="card-date">Valuation: ${dateStr}</div>` : ''}
   `;
   return a;
+}
+
+// ─── Search / Sort controls ───────────────────────────────────────────────────
+function buildListControls() {
+  const div = el('div', 'list-controls');
+  div.innerHTML = `
+    <input id="list-search" class="search-input" placeholder="Buscar empresa ou ticker…">
+    <div class="sort-controls">
+      <span class="sort-label">Ordenar por:</span>
+      <button class="sort-btn" data-sort="date">Data</button>
+      <button class="sort-btn" data-sort="discount">Desconto</button>
+      <button class="sort-btn" data-sort="ticker">Ticker</button>
+    </div>
+  `;
+  div.querySelector('#list-search').value = S.listSearch;
+  _syncSortBtns(div);
+
+  div.querySelector('#list-search').addEventListener('input', e => {
+    S.listSearch = e.target.value;
+    renderCards();
+  });
+  div.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const f = btn.dataset.sort;
+      S.listSort.field === f ? (S.listSort.dir *= -1) : Object.assign(S.listSort, { field: f, dir: f === 'date' ? -1 : 1 });
+      _syncSortBtns(div);
+      renderCards();
+    });
+  });
+  return div;
+}
+
+function _syncSortBtns(container) {
+  const LABELS = { date: 'Data', discount: 'Desconto', ticker: 'Ticker' };
+  container.querySelectorAll('.sort-btn').forEach(btn => {
+    const active = S.listSort.field === btn.dataset.sort;
+    btn.className = 'sort-btn' + (active ? ' active' : '');
+    btn.textContent = LABELS[btn.dataset.sort] + (active ? (S.listSort.dir === -1 ? ' ↓' : ' ↑') : '');
+  });
+}
+
+function renderCards() {
+  const grid = document.getElementById('ticker-grid');
+  if (!grid) return;
+
+  let cards = [...S.listCards];
+
+  const q = S.listSearch.trim().toLowerCase();
+  if (q) {
+    cards = cards.filter(({ ticker, passos }) => {
+      const nome = (passos[0]?.empresa?.nome || '').toLowerCase();
+      return ticker.toLowerCase().includes(q) || nome.includes(q);
+    });
+  }
+
+  const { field, dir } = S.listSort;
+  cards.sort((a, b) => {
+    let cmp = 0;
+    if (field === 'date') {
+      cmp = (a.mtime || 0) - (b.mtime || 0);
+    } else if (field === 'discount') {
+      const da = _cardDiscount(a), db = _cardDiscount(b);
+      if (da == null && db == null) cmp = 0;
+      else if (da == null) cmp = 1;
+      else if (db == null) cmp = -1;
+      else cmp = da - db;
+    } else {
+      cmp = a.ticker.localeCompare(b.ticker);
+    }
+    return cmp * dir;
+  });
+
+  grid.innerHTML = '';
+  if (!cards.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;padding:40px 0">Nenhuma empresa encontrada.</div>`;
+    return;
+  }
+  for (const { ticker, mtime, passos } of cards) grid.appendChild(buildCard(ticker, mtime, passos));
+}
+
+function _cardDiscount({ passos }) {
+  const [p1,,, p4] = passos;
+  const precoM = p1?.mercado?.P?.valor ?? p4?.bloco_f?.P;
+  const introV = p4?.bloco_f?.Valor_acao;
+  return precoM != null && introV != null ? (precoM - introV) / introV : null;
 }
 
 // ─── Detail view ──────────────────────────────────────────────────────────────

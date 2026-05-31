@@ -25,10 +25,13 @@ class DashHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/api/tickers":
-            tickers = sorted(
-                d.name for d in ACOES.iterdir()
-                if d.is_dir() and not d.name.startswith(".")
-            )
+            tickers = []
+            for d in sorted(ACOES.iterdir(), key=lambda x: x.name):
+                if not d.is_dir() or d.name.startswith("."):
+                    continue
+                s4 = d / "step4.json"
+                mtime = s4.stat().st_mtime if s4.exists() else 0
+                tickers.append({"ticker": d.name, "mtime": mtime})
             self._send_json(tickers)
         else:
             super().do_GET()
