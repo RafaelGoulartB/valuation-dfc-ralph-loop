@@ -2,6 +2,10 @@
 
 A local DCF (Discounted Cash Flow) valuation system for Brazilian equities using the Damodaran methodology. An AI agent extracts financial data from company earnings releases (PDFs), runs a structured 5-step pipeline, and presents the results in a web dashboard with inline editing.
 
+<img width="1736" height="1044" alt="image" src="https://github.com/user-attachments/assets/fc97c30a-0bd0-42fa-8181-41c3e72a2903" />
+<img width="1729" height="1416" alt="image" src="https://github.com/user-attachments/assets/bcfa4bdd-990e-4ca6-9877-314e3482d071" />
+
+
 ## Features
 
 - **5-step pipeline** driven by an AI coding agent (`pi`) — from PDF extraction to sensitivity analysis
