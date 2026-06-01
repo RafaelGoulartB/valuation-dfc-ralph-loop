@@ -36,11 +36,11 @@ MARKET     = SCRIPT_DIR.parent.parent          # .../Market
 VAL        = MARKET / "Valuation"
 
 INST = {
-    1: VAL / "step1_release_extraction.md",
-    2: VAL / "step2_market_parameters.md",
-    3: VAL / "step3_analyst_assumptions.md",
-    4: VAL / "step4_dcf_calculation.md",
-    5: VAL / "step5_sensitivity_scenarios.md",
+    1: VAL / "instructions" / "step1_release_extraction.md",
+    2: VAL / "instructions" / "step2_market_parameters.md",
+    3: VAL / "instructions" / "step3_analyst_assumptions.md",
+    4: VAL / "instructions" / "step4_dcf_calculation.md",
+    5: VAL / "instructions" / "step5_sensitivity_scenarios.md",
 }
 
 DATA = {

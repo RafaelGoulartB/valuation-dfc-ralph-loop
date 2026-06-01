@@ -42,7 +42,10 @@ Market/
 │   │   ├── beta-by-sector.md       # Damodaran beta table
 │   │   ├── country-default-spreads-and-risk-premiums.md
 │   │   └── ratings.md              # synthetic rating spreads
-│   └── step{1-5}_*.md              # step instructions for the AI agent
+│   └── instructions/
+│       ├── 00_pipeline_index.md        # pipeline index and transition rules
+│       ├── step{1-5}_*.md              # step instructions for the AI agent
+│       └── system_prompt_agente_dcf.md # AI agent system prompt
 ```
 
 ## Running the Pipeline
