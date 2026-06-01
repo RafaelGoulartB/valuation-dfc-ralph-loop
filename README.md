@@ -81,11 +81,11 @@ Open **http://localhost:8000/Valuation/web/** in your browser.
 
 | Step | Name | What happens |
 |------|------|--------------|
-| **1** | Extração do Release | AI agent reads the earnings PDF and extracts DRE, balance sheet, and market data into JSON |
-| **2** | Parâmetros de Mercado | AI agent looks up Damodaran tables (ERP, beta, ratings) and calculates WACC inputs |
-| **3** | Premissas do Analista | AI agent consolidates all data and sets growth, margin, and perpetuity assumptions |
-| **4** | Cálculo DCF | Python script runs the full Damodaran DCF model (WACC → FCFF projections → terminal value → equity bridge) |
-| **5** | Sensibilidade / Cenários | AI agent runs bear/base/bull scenarios and breakeven analysis |
+| **1** | Release Extraction | AI agent reads the earnings PDF and extracts income statement, balance sheet, and market data into JSON |
+| **2** | Market Parameters | AI agent looks up Damodaran tables (ERP, beta, ratings) and calculates WACC inputs |
+| **3** | Analyst Assumptions | AI agent consolidates all data and sets growth, margin, and perpetuity assumptions |
+| **4** | DCF Calculation | Python script runs the full Damodaran DCF model (WACC → FCFF projections → terminal value → equity bridge) |
+| **5** | Sensitivity / Scenarios | AI agent runs bear/base/bull scenarios and breakeven analysis |
 
 ## Dashboard Overview
 

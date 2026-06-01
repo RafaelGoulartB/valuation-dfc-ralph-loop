@@ -1,137 +1,137 @@
-# Passo 2 — Parâmetros de Mercado
+# Step 2 — Market Parameters
 
-**Pré-requisito:** `step1.json` completo, sem campos PENDENTE nos blocos dre/balanco/mercado.  
-**Objetivo:** coletar os 6 parâmetros externos para calcular o WACC.  
-**Regra:** nenhum valor estimado sem fonte. Se não conseguir obter: marcar `PENDENTE` e solicitar ao usuário.
-
----
-
-## 2.1 — Rf (Taxa Livre de Risco)
-
-**Brasil:** buscar o yield da NTN-B 2035 (IPCA+ longo prazo) no site da ANBIMA.  
-Usar a taxa nominal (IPCA + prêmio real), expressa em decimal (ex: 0,1453 para 14,53%).  
-Registrar a data de consulta — o yield muda diariamente.
-
-**EUA:** yield do Treasury 10Y (fonte: FRED, série DGS10), em decimal.
-
-**Atenção:** Rf deve estar na mesma moeda que os fluxos de caixa do modelo (BRL para empresas brasileiras).
-
-```
-Rf = ____   Fonte: ________________   Data: ________
-```
+**Prerequisite:** `step1.json` complete, with no PENDING fields in the dre/balanco/mercado blocks.  
+**Objective:** collect the 6 external parameters to calculate the WACC.  
+**Rule:** no estimated value without a source. If you cannot obtain one: mark it `PENDING` and ask the user.
 
 ---
 
-## 2.2 — ERP (Prêmio de Risco de Equity)
+## 2.1 — Rf (Risk-Free Rate)
 
-Fonte: arquivo `Valuation/data/country-default-spreads-and-risk-premiums.md`
+**Brazil:** look up the NTN-B 2035 yield (long-term IPCA+) on the ANBIMA website.  
+Use the nominal rate (IPCA + real premium), expressed as a decimal (e.g. 0.1453 for 14.53%).  
+Record the date of lookup — the yield changes daily.
 
-Procedimento:
-1. Localizar o país de `empresa.pais` do step1.json
-2. Copiar o valor da coluna **"Equity Risk Premium"** (ERP total = base EUA + Country Risk Premium)
-3. Se o país não estiver listado individualmente: usar o ERP da região (ex: "Latin America")
+**USA:** 10Y Treasury yield (source: FRED, series DGS10), as a decimal.
+
+**Note:** Rf must be in the same currency as the model's cash flows (BRL for Brazilian companies).
 
 ```
-ERP = ____   País consultado: ________________   Ano da tabela: ____
+Rf = ____   Source: ________________   Date: ________
 ```
 
 ---
 
-## 2.3 — Beta_u (Beta Desalavancado do Setor)
+## 2.2 — ERP (Equity Risk Premium)
 
-Fonte: arquivo `Valuation/data/beta-by-sector.md`
+Source: file `Valuation/data/country-default-spreads-and-risk-premiums.md`
 
-Procedimento:
-1. Identificar o setor em `empresa.setor` do step1.json
-2. Localizar o setor mais próximo na tabela
-3. Copiar o valor da coluna **"Unlevered Beta corrected for cash"**
-4. Se não houver correspondência exata: registrar o setor usado e a justificativa
+Procedure:
+1. Locate the country from `empresa.pais` in step1.json
+2. Copy the value from the **"Equity Risk Premium"** column (total ERP = US base + Country Risk Premium)
+3. If the country is not listed individually: use the regional ERP (e.g. "Latin America")
 
 ```
-Beta_u = ____   Setor consultado: ________________   Setor da empresa: ________________
+ERP = ____   Country consulted: ________________   Table year: ____
 ```
 
 ---
 
-## 2.4 — Kd_pre (Custo Pré-Imposto da Dívida)
+## 2.3 — Beta_u (Unlevered Sector Beta)
 
-**Cálculo principal** (usar os valores do step1.json):
+Source: file `Valuation/data/beta-by-sector.md`
+
+Procedure:
+1. Identify the sector from `empresa.setor` in step1.json
+2. Locate the closest sector in the table
+3. Copy the value from the **"Unlevered Beta corrected for cash"** column
+4. If there is no exact match: record the sector used and the justification
 
 ```
-Juros = passo1.dre.Juros.valor  = ___ M
-D     = passo1.balanco.D.valor  = ___ M
+Beta_u = ____   Sector consulted: ________________   Company sector: ________________
+```
+
+---
+
+## 2.4 — Kd_pre (Pre-Tax Cost of Debt)
+
+**Primary calculation** (use values from step1.json):
+
+```
+Juros = step1.dre.Juros.valor  = ___ M
+D     = step1.balanco.D.valor  = ___ M
 Kd_pre = Juros / D = ___ / ___ = ____%
 ```
 
-**Verificação obrigatória — comparar com Rf:**
+**Mandatory check — compare with Rf:**
 
 ```
-Rf = ____%   (do item 2.1)
-Kd_pre (___%) > Rf (___%) ?   →   SIM | NÃO
+Rf = ____%   (from item 2.1)
+Kd_pre (___%) > Rf (___%) ?   →   YES | NO
 ```
 
-**SE Kd_pre < Rf → BLOQUEADOR. Não avançar ao Passo 3.**
+**IF Kd_pre < Rf → BLOCKER. Do not advance to Step 3.**
 
-Verificar nesta ordem antes de aceitar:
-1. O campo `Juros` inclui apenas juros sobre dívida financeira? (excluir variação cambial, multas, hedge)
-2. O campo `D` inclui dívida completa (curto + longo prazo)?
-3. Os dois valores estão em MILHÕES (mesma unidade)?
-4. Se após correção ainda Kd_pre < Rf: registrar o alerta, apresentar ao usuário e aguardar confirmação antes de avançar.
+Check in this order before accepting:
+1. Does the `Juros` field include only interest on financial debt? (exclude FX variation, fines, hedge)
+2. Does the `D` field include total debt (short + long term)?
+3. Are both values in MILLIONS (same unit)?
+4. If after correction Kd_pre is still < Rf: record the alert, present to the user, and wait for confirmation before advancing.
 
-**Alternativa se `Juros` não estiver disponível no passo1:**
-- Usar `Valuation/data/ratings.md`: calcular índice de cobertura `EBIT_0 / Juros`
-- Localizar o rating sintético e spread correspondente
+**Alternative if `Juros` is not available in step1:**
+- Use `Valuation/data/ratings.md`: calculate interest coverage ratio `EBIT_0 / Juros`
+- Locate the synthetic rating and corresponding spread
 - `Kd_pre = Rf + spread`
 
 ```
 Kd_pre = ____%
-Método usado: Juros/D | Rating sintético | Divulgado no release
-Kd_pre > Rf: SIM | NÃO (se NÃO: ver bloqueador acima)
+Method used: Juros/D | Synthetic rating | Disclosed in release
+Kd_pre > Rf: YES | NO (if NO: see blocker above)
 ```
 
 ---
 
-## 2.5 — IR_marg (Alíquota Marginal de IR)
+## 2.5 — IR_marg (Marginal Tax Rate)
 
-Esta é a alíquota legal máxima — diferente de `IR_ef` (efetiva atual do passo1).
+This is the maximum statutory rate — different from `IR_ef` (current effective rate from step1).
 
-| País | IR_marg | Composição |
+| Country | IR_marg | Composition |
 |---|---|---|
-| Brasil (não-financeiro) | 0,34 | 25% IRPJ + 9% CSLL |
-| Brasil (financeiro) | 0,45 | 25% IRPJ + 20% CSLL |
-| EUA | 0,25 | federal + média estadual |
-| Outros | — | `Valuation/data/country-default-spreads-and-risk-premiums.md`, coluna "Corporate Tax Rate" |
+| Brazil (non-financial) | 0.34 | 25% IRPJ + 9% CSLL |
+| Brazil (financial) | 0.45 | 25% IRPJ + 20% CSLL |
+| USA | 0.25 | federal + state average |
+| Others | — | `Valuation/data/country-default-spreads-and-risk-premiums.md`, "Corporate Tax Rate" column |
 
 ```
-IR_marg = ____   Composição: ________________
-```
-
----
-
-## 2.6 — WACC_est (WACC na Maturidade)
-
-Fórmula padrão Damodaran (empresa madura, beta ≈ 1, sem risco-país adicional):
-
-```
-WACC_est = Rf + 0,045
-```
-
-Ajustes ao padrão:
-- Setor de alto risco regulatório ou muito cíclico: adicionar +0,5 a +1,5 p.p.
-- Setor de baixo risco (utilities reguladas, concessões): pode reduzir −0,5 p.p.
-- Se o usuário fornecer uma estimativa própria: usar o valor do usuário e registrar justificativa.
-
-**Validação:** `WACC_est > g_perp` (verificar no Passo 3 quando g_perp for definida).
-
-```
-WACC_est = Rf + 0,045 = ____ + 0,045 = ____
-Método: Rf+4,5% padrão | Ajustado | Fornecido pelo usuário
-Justificativa (se ajustado): ________________
+IR_marg = ____   Composition: ________________
 ```
 
 ---
 
-## JSON de saída
+## 2.6 — WACC_est (Mature WACC)
+
+Standard Damodaran formula (mature company, beta ≈ 1, no additional country risk):
+
+```
+WACC_est = Rf + 0.045
+```
+
+Adjustments to the default:
+- High regulatory risk or highly cyclical sector: add +0.5 to +1.5 pp.
+- Low-risk sector (regulated utilities, concessions): may reduce by −0.5 pp.
+- If the user provides their own estimate: use the user's value and record the justification.
+
+**Validation:** `WACC_est > g_perp` (check in Step 3 when g_perp is defined).
+
+```
+WACC_est = Rf + 0.045 = ____ + 0.045 = ____
+Method: Rf+4.5% default | Adjusted | Provided by user
+Justification (if adjusted): ________________
+```
+
+---
+
+## Output JSON
 
 ```json
 {
@@ -178,7 +178,7 @@ Justificativa (se ajustado): ________________
 }
 ```
 
-**Gate:** `pronto_para_passo3: true` somente quando:
-- Todos os 6 campos preenchidos (sem null)
-- `Kd_pre > Rf` confirmado
+**Gate:** `pronto_para_passo3: true` only when:
+- All 6 fields filled (no nulls)
+- `Kd_pre > Rf` confirmed
 - `status_passo2.campos_nulos = []`

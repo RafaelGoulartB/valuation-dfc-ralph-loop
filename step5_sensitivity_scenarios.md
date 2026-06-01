@@ -1,21 +1,21 @@
-# Passo 5 — Análise de Sensibilidade e Cenários
+# Step 5 — Sensitivity Analysis and Scenarios
 
-**Pré-requisito:** Passo 4 concluído sem falhas no checklist.  
-**Input necessário:** `Valor_acao_base`, `VP_total`, `VP_VT`, `Fator_10`, `NOPAT_term` e todos os inputs do `step3.json`.
+**Prerequisite:** Step 4 completed with no checklist failures.  
+**Required inputs:** `Valor_acao_base`, `VP_total`, `VP_VT`, `Fator_10`, `NOPAT_term` and all inputs from `step3.json`.
 
 ---
 
-## Análise 5.1 — Matriz WACC_est × g_perp
+## Analysis 5.1 — WACC_est × g_perp Matrix
 
-Esta é a análise mais importante: o Valor Terminal representa ~40–70% do valor total e é determinado diretamente por essas duas variáveis.
+This is the most important analysis: the Terminal Value represents ~40–70% of total value and is directly determined by these two variables.
 
-**Configuração:**
-- Linhas: WACC_est variando de −1,0 p.p. a +1,0 p.p. em passos de 0,5 p.p. → 5 linhas
-- Colunas: g_perp variando de −1,0 p.p. a +1,0 p.p. em passos de 0,5 p.p. → 5 colunas
+**Configuration:**
+- Rows: WACC_est varying from −1.0 pp to +1.0 pp in steps of 0.5 pp → 5 rows
+- Columns: g_perp varying from −1.0 pp to +1.0 pp in steps of 0.5 pp → 5 columns
 
-**Cálculo para cada célula (WACC_i, g_j):**
+**Calculation for each cell (WACC_i, g_j):**
 
-Apenas os Blocos D e F mudam. `VP_total` e `Fator_10` permanecem fixos do Passo 4.
+Only Blocks D and F change. `VP_total` and `Fator_10` remain fixed from Step 4.
 
 ```
 1. ReinvRate_ij = g_j / WACC_i
@@ -27,123 +27,123 @@ Apenas os Blocos D e F mudam. `VP_total` e `Fator_10` permanecem fixos do Passo 
 7. Valor_acao_ij = Equity_ij / Shares
 ```
 
-**Regras de preenchimento:**
-- Se `g_j ≥ WACC_i`: preencher com "—" (modelo inválido, denominador ≤ 0)
-- Célula com valores base do Passo 4: marcar com `*`
-- Célula onde `Valor_acao > P` (subvalorizada): marcar com `✓`
-- Célula onde `Valor_acao < P` (sobrevalorizada): marcar com `✗`
+**Fill rules:**
+- If `g_j ≥ WACC_i`: fill with "—" (invalid model, denominator ≤ 0)
+- Cell with Step 4 base values: mark with `*`
+- Cell where `Valor_acao > P` (undervalued): mark with `✓`
+- Cell where `Valor_acao < P` (overvalued): mark with `✗`
 
 ---
 
-## Análise 5.2 — Matriz g2_5 × Mg_alvo
+## Analysis 5.2 — g2_5 × Mg_alvo Matrix
 
-Mostra sensibilidade às premissas operacionais do analista.
+Shows sensitivity to the analyst's operating assumptions.
 
-**Configuração:**
-- Linhas: g2_5 variando −1,0 p.p. a +1,0 p.p. em passos de 0,5 p.p. → 5 linhas
-- Colunas: Mg_alvo variando −2,0 p.p. a +2,0 p.p. em passos de 1,0 p.p. → 5 colunas
+**Configuration:**
+- Rows: g2_5 varying −1.0 pp to +1.0 pp in steps of 0.5 pp → 5 rows
+- Columns: Mg_alvo varying −2.0 pp to +2.0 pp in steps of 1.0 pp → 5 columns
 
-**Cálculo para cada célula (g_i, Mg_j):**
+**Calculation for each cell (g_i, Mg_j):**
 
-Recalcular Blocos B, C, D e F completos com novos g2_5 = g_i e Mg_alvo = Mg_j.  
-Manter fixos: WACC_est, g_perp, StC, g1, Mg_1, Ano_conv e todos os Blocos A e E.
+Recalculate Blocks B, C, D, and F completely with new g2_5 = g_i and Mg_alvo = Mg_j.  
+Keep fixed: WACC_est, g_perp, StC, g1, Mg_1, Ano_conv, and all of Blocks A and E.
 
 ```
-Para cada t = 1..10:
-  1. Recalcular g(t) usando g_i no lugar de g2_5 (para t = 2..5 e transição 6..10)
-  2. Recalcular Mg(t) usando Mg_j no lugar de Mg_alvo
-  3. Recalcular Rev(t), EBIT(t), NOPAT(t), Reinvest(t), FCFF(t)
-  4. Recalcular VP_FCFF(t) → somar → novo VP_total_ij
-Recalcular Bloco D com Mg_alvo = Mg_j → novo VP_VT_ij
-Recalcular Bloco F → novo Valor_acao_ij
+For each t = 1..10:
+  1. Recalculate g(t) using g_i in place of g2_5 (for t = 2..5 and transition 6..10)
+  2. Recalculate Mg(t) using Mg_j in place of Mg_alvo
+  3. Recalculate Rev(t), EBIT(t), NOPAT(t), Reinvest(t), FCFF(t)
+  4. Recalculate VP_FCFF(t) → sum → new VP_total_ij
+Recalculate Block D with Mg_alvo = Mg_j → new VP_VT_ij
+Recalculate Block F → new Valor_acao_ij
 ```
 
-Marcar células com `✓`, `✗` e `*` da mesma forma que na Análise 5.1.
+Mark cells with `✓`, `✗`, and `*` in the same way as in Analysis 5.1.
 
 ---
 
-## Análise 5.3 — Breakevens
+## Analysis 5.3 — Breakevens
 
-Para cada premissa abaixo: encontrar o valor exato que faz `Valor_acao = P`, mantendo todas as demais premissas nos valores base do Passo 4.
+For each assumption below: find the exact value that makes `Valor_acao = P`, holding all other assumptions at Step 4 base values.
 
-**Método de busca:** variar a premissa no intervalo indicado em passos de 0,1 p.p. até Valor_acao ≈ P.
+**Search method:** vary the assumption in the indicated range in steps of 0.1 pp until Valor_acao ≈ P.
 
-| Premissa | Intervalo de busca | g_perp_breakeven | Distância ao base |
+| Assumption | Search range | Breakeven value | Distance from base |
 |---|---|---|---|
-| g_perp | 0% até WACC_est − 0,1% | ___% | ___ p.p. |
-| WACC_est | WACC_est_base ± 5 p.p. | ___% | ___ p.p. |
-| Mg_alvo | 0% até 60% | ___% | ___ p.p. |
-| g2_5 | −5 p.p. até +10 p.p. do base | ___% | ___ p.p. |
+| g_perp | 0% to WACC_est − 0.1% | ___% | ___ pp |
+| WACC_est | WACC_est_base ± 5 pp | ___% | ___ pp |
+| Mg_alvo | 0% to 60% | ___% | ___ pp |
+| g2_5 | −5 pp to +10 pp from base | ___% | ___ pp |
 
-**Interpretação:**
-- Premissa com menor distância ao breakeven → mais sensível → monitorar nos próximos releases
-- Se o breakeven implica valor impossível (ex: g_perp ≥ Rf): preço de mercado não é justificável por premissas razoáveis → ação muito sobre ou subvalorizada
+**Interpretation:**
+- Assumption with the shortest distance to breakeven → most sensitive → monitor in future releases
+- If the breakeven implies an impossible value (e.g. g_perp ≥ Rf): the market price cannot be justified by reasonable assumptions → stock is significantly over or undervalued
 
 ```
-Premissa mais sensível: ________________
-Interpretação: "O mercado está precificando ___ = ___%, vs. premissa base de ____%"
+Most sensitive assumption: ________________
+Interpretation: "The market is pricing ___ = ___%, vs. base assumption of ____%"
 ```
 
 ---
 
-## Análise 5.4 — Cenários Bear / Base / Bull
+## Analysis 5.4 — Bear / Base / Bull Scenarios
 
-Construir três conjuntos coerentes de premissas e calcular Valor_acao em cada um.
+Build three coherent sets of assumptions and calculate Valor_acao in each.
 
-**Referências para calibrar:**
+**References for calibration:**
 
-| Premissa | Bear (pessimista) | Base (Passo 4) | Bull (otimista) |
+| Assumption | Bear (pessimistic) | Base (Step 4) | Bull (optimistic) |
 |---|---|---|---|
 | g1 | g1_base − 2pp | (base) | g1_base |
-| g2_5 | mediana setor − 2pp | (base) | g_recente |
+| g2_5 | sector median − 2pp | (base) | g_recente |
 | Mg_1 | Mg_1_base − 1pp | (base) | Mg_1_base |
-| Mg_alvo | mediana setor | (base) | melhor peer do setor |
-| StC | StC_hist × 0,85 | (base) | StC_hist |
-| g_perp | inflação − 1pp | (base) | inflação + PIB real |
-| WACC_est | WACC_est_base + 1pp | (base) | WACC_est_base − 0,5pp |
+| Mg_alvo | sector median | (base) | best sector peer |
+| StC | StC_hist × 0.85 | (base) | StC_hist |
+| g_perp | inflation − 1pp | (base) | inflation + real GDP |
+| WACC_est | WACC_est_base + 1pp | (base) | WACC_est_base − 0.5pp |
 
-Preencher a coluna Bear e Bull com os valores escolhidos. Os valores devem ser coerentes entre si (ex: crescimento alto no Bear é inconsistente com margem baixa apenas se houver razão).
+Fill the Bear and Bull columns with chosen values. Values must be internally consistent (e.g. high growth in the Bear scenario is inconsistent with low margin unless there is a specific reason).
 
-**Cálculo:** para Bear e Bull, recalcular Blocos B, C, D e F completamente com as novas premissas.
+**Calculation:** for Bear and Bull, recalculate Blocks B, C, D, and F completely with the new assumptions.
 
 ```
-Cenário Bear:  Valor_acao = ____  (____% vs P = ____)
-Cenário Base:  Valor_acao = ____  (____% vs P)   ← valor do Passo 4
-Cenário Bull:  Valor_acao = ____  (____% vs P)
+Bear scenario:  Valor_acao = ____  (____% vs P = ____)
+Base scenario:  Valor_acao = ____  (____% vs P)   ← Step 4 value
+Bull scenario:  Valor_acao = ____  (____% vs P)
 
-Intervalo de valor intrínseco: [___, ___]
-Preço atual (P = ____) está dentro do intervalo?  SIM | NÃO
+Intrinsic value range: [___, ___]
+Current price (P = ____) is within the range?  YES | NO
 ```
 
 ---
 
-## Output do Passo 5
+## Step 5 Output
 
-Apresentar nesta ordem:
+Present in this order:
 
-**5.A — Matriz WACC × g_perp** (tabela com ✓/✗/*/—)
+**5.A — WACC × g_perp Matrix** (table with ✓/✗/*/—)
 
-**5.B — Matriz g2_5 × Mg_alvo** (tabela com ✓/✗/*)
+**5.B — g2_5 × Mg_alvo Matrix** (table with ✓/✗/*)
 
 **5.C — Breakevens**
 ```
-g_perp:   base=___% → breakeven=___% → distância ___ p.p.
-WACC_est: base=___% → breakeven=___% → distância ___ p.p.
-Mg_alvo:  base=___% → breakeven=___% → distância ___ p.p.
-g2_5:     base=___% → breakeven=___% → distância ___ p.p.
-Premissa mais sensível: ________________
+g_perp:   base=___% → breakeven=___% → distance ___ pp
+WACC_est: base=___% → breakeven=___% → distance ___ pp
+Mg_alvo:  base=___% → breakeven=___% → distance ___ pp
+g2_5:     base=___% → breakeven=___% → distance ___ pp
+Most sensitive assumption: ________________
 ```
 
-**5.D — Tabela de Cenários**
+**5.D — Scenario Table**
 
-| Cenário | g2_5 | Mg_alvo | g_perp | WACC_est | Valor_acao | vs P |
+| Scenario | g2_5 | Mg_alvo | g_perp | WACC_est | Valor_acao | vs P |
 |---|---|---|---|---|---|---|
 | Bear | | | | | | |
-| Base | | | | | | ← Passo 4 |
+| Base | | | | | | ← Step 4 |
 | Bull | | | | | | |
 
-**5.E — Conclusão (3–4 frases):**
-1. Classificação do valor base (sobre/sub/justo) e magnitude
-2. Premissa mais sensível e o que ela representa operacionalmente
-3. Em qual cenário o preço atual P seria justo
-4. O que monitorar nos próximos releases para revisar a tese
+**5.E — Conclusion (3–4 sentences):**
+1. Classification of the base value (over/under/fairly valued) and magnitude
+2. Most sensitive assumption and what it represents operationally
+3. In which scenario the current price P would be fair
+4. What to monitor in future releases to revisit the thesis

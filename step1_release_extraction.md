@@ -1,142 +1,142 @@
-# Passo 1 — Extração do Release
+# Step 1 — Release Extraction
 
-**Objetivo:** ler o PDF do release e produzir `Acoes/<TICKER>/step1.json` com todos os dados históricos necessários para o valuation DCF.  
-**Regra fundamental:** todos os valores financeiros no JSON devem estar em **MILHÕES (R$ M)**.
-
----
-
-## FASE 1 — Identificar estrutura do documento
-
-Antes de extrair qualquer número, responda:
-1. Nome da empresa e ticker?
-2. Período do release (anual / trimestral / LTM)?
-3. Unidade reportada (milhares / milhões / bilhões)?
-4. O release contém: DRE? Balanço? Fluxo de Caixa? Notas sobre dívida?
-
-Registre as respostas. Elas determinam como tratar os números.
+**Objective:** read the earnings release PDF and produce `Acoes/<TICKER>/step1.json` with all historical data required for the DCF valuation.  
+**Fundamental rule:** all financial values in the JSON must be in **MILLIONS (R$ M)**.
 
 ---
 
-## FASE 2 — Regra de Unidades
+## PHASE 1 — Identify the document structure
 
-**Converter tudo para MILHÕES antes de registrar no JSON:**
+Before extracting any number, answer:
+1. Company name and ticker?
+2. Release period (annual / quarterly / LTM)?
+3. Reported unit (thousands / millions / billions)?
+4. Does the release contain: Income Statement? Balance Sheet? Cash Flow Statement? Debt notes?
 
-| Unidade no release | Exemplo encontrado | Operação | Valor no JSON |
+Record the answers. They determine how to treat the numbers.
+
+---
+
+## PHASE 2 — Unit Rule
+
+**Convert everything to MILLIONS before recording in the JSON:**
+
+| Unit in release | Example found | Operation | Value in JSON |
 |---|---|---|---|
-| Milhares (R$ mil) | 1.185.600 | ÷ 1.000 | 1.185,6 |
-| Milhões (R$ M) | 1.185,6 | nenhuma | 1.185,6 |
-| Bilhões (R$ B) | 1,186 | × 1.000 | 1.186,0 |
+| Thousands (R$ k) | 1,185,600 | ÷ 1,000 | 1,185.6 |
+| Millions (R$ M) | 1,185.6 | none | 1,185.6 |
+| Billions (R$ B) | 1.186 | × 1,000 | 1,186.0 |
 
-**Verificação de escala obrigatória:** calcule `MktCap / Rev_0` ao final.
-- Entre 0,3× e 15×: normal para maioria dos setores.
-- Acima de 20×: PARAR — há quase certeza de erro de unidade. Revisar antes de continuar.
+**Mandatory scale check:** calculate `MktCap / Rev_0` at the end.
+- Between 0.3× and 15×: normal for most sectors.
+- Above 20×: STOP — almost certainly a unit error. Review before continuing.
 
 ---
 
-## FASE 3 — Extração campo a campo
+## PHASE 3 — Field-by-field extraction
 
-Para cada campo: localizar no documento → converter unidade → registrar valor e fonte.  
-Se não encontrado: registrar `"valor": null, "confianca": "PENDENTE"` e incluir na lista de lacunas.
+For each field: locate in the document → convert unit → record value and source.  
+If not found: record `"valor": null, "confianca": "PENDING"` and add to the gap list.
 
-### Bloco DRE
+### Income Statement Block (DRE)
 
-**Rev_0 — Receita Líquida**
-- Buscar: "Receita Líquida", "Net Revenue", "Receita Operacional Líquida"
-- Preferir LTM (últimos 12 meses). Se release anual: usar diretamente.
-- Se trimestral sem coluna LTM: `LTM = 4T_anterior + Acumulado_atual − Acumulado_anterior_mesmo_período`
-- Se impossível calcular LTM: registrar valor trimestral com nota "necessita anualização"
+**Rev_0 — Net Revenue**
+- Look for: "Receita Líquida", "Net Revenue", "Receita Operacional Líquida"
+- Prefer LTM (last 12 months). If annual release: use directly.
+- If quarterly without LTM column: `LTM = Q4_prior + YTD_current − YTD_prior_same_period`
+- If LTM cannot be calculated: record quarterly value with note "needs annualisation"
 
-**EBIT_0 — Resultado Operacional**
-- Buscar: "EBIT", "Resultado Operacional", "Lucro Operacional", "Operating Income"
-- **ATENÇÃO:** EBIT ≠ EBITDA. EBIT já deduz depreciação. Se o release mostrar apenas EBITDA: `EBIT = EBITDA − Dep`
-- Sinal de alerta: se `EBIT_0 / Rev_0 > 40%` provavelmente é EBITDA por engano — verificar
+**EBIT_0 — Operating Income**
+- Look for: "EBIT", "Resultado Operacional", "Lucro Operacional", "Operating Income"
+- **NOTE:** EBIT ≠ EBITDA. EBIT already deducts depreciation. If the release shows only EBITDA: `EBIT = EBITDA − Dep`
+- Warning signal: if `EBIT_0 / Rev_0 > 40%` it is probably EBITDA by mistake — verify
 
 **EBITDA**
-- Buscar: "EBITDA"
-- Usado para calcular Dep = EBITDA − EBIT. Se não disponível, registrar null.
+- Look for: "EBITDA"
+- Used to calculate Dep = EBITDA − EBIT. If not available, record null.
 
-**Dep — Depreciação e Amortização**
-- Buscar: "Depreciação", "Amortização", "D&A" no fluxo de caixa
-- Se não encontrado diretamente: `Dep = EBITDA − EBIT_0` (se ambos disponíveis)
+**Dep — Depreciation and Amortization**
+- Look for: "Depreciação", "Amortização", "D&A" in the cash flow statement
+- If not found directly: `Dep = EBITDA − EBIT_0` (if both available)
 
-**Juros — Despesa com Juros**
-- Buscar: "Juros sobre dívida", "Despesas Financeiras — Juros", "Interest Expense"
-- Incluir APENAS juros sobre dívida financeira.
-- Excluir: variação cambial, multas, juros sobre impostos, resultado de hedge.
-- Se o release misturar: anotar o valor bruto de juros separadamente do resultado financeiro líquido.
+**Juros — Interest Expense**
+- Look for: "Juros sobre dívida", "Despesas Financeiras — Juros", "Interest Expense"
+- Include ONLY interest on financial debt.
+- Exclude: FX variation, fines, tax interest, hedge results.
+- If the release mixes them: note the gross interest separately from net financial result.
 
-**LAIR — Lucro Antes do Imposto**
-- Buscar: "LAIR", "EBT", "Lucro Antes do IR", "Pre-tax Income"
+**LAIR — Earnings Before Tax**
+- Look for: "LAIR", "EBT", "Lucro Antes do IR", "Pre-tax Income"
 
-**IR_pago — Imposto de Renda Pago**
-- Buscar: "IRPJ e CSLL", "Imposto de Renda", "Income Tax Expense"
-- Usar o valor da despesa contábil (não o IR em caixa do fluxo de caixa, salvo se for o único disponível)
+**IR_pago — Income Tax Paid**
+- Look for: "IRPJ e CSLL", "Imposto de Renda", "Income Tax Expense"
+- Use the accounting tax expense (not the cash tax from the cash flow, unless it is the only figure available)
 
-### Bloco Balanço
+### Balance Sheet Block
 
-**D — Dívida Financeira Bruta**
-- Buscar: "Dívida Bruta", "Empréstimos e Financiamentos", "Debêntures"
-- Somar: parte circulante (curto prazo) + parte não circulante (longo prazo)
-- Excluir: arrendamentos IFRS 16, contas a pagar, impostos diferidos
-- Exceção: se a empresa divulga "Dívida ex-IFRS 16" explicitamente, usar esse valor
+**D — Gross Financial Debt**
+- Look for: "Dívida Bruta", "Empréstimos e Financiamentos", "Debêntures"
+- Sum: current portion (short-term) + non-current portion (long-term)
+- Exclude: IFRS 16 lease liabilities, accounts payable, deferred taxes
+- Exception: if the company explicitly discloses "Dívida ex-IFRS 16", use that figure
 
-**Caixa**
-- Buscar: "Caixa e Equivalentes", "Aplicações Financeiras de Curto Prazo"
-- Incluir: caixa + aplicações com vencimento < 90 dias
+**Caixa — Cash**
+- Look for: "Caixa e Equivalentes", "Aplicações Financeiras de Curto Prazo"
+- Include: cash + short-term investments with maturity < 90 days
 
-**D_liq — Dívida Líquida**
-- Buscar: "Dívida Líquida", "Net Debt" — usar como campo de verificação
-- Calcular: `D_liq_calc = D − Caixa`. Deve bater com o valor do release (tolerância 2%).
-- Se divergir > 2%: investigar antes de registrar.
+**D_liq — Net Debt**
+- Look for: "Dívida Líquida", "Net Debt" — use as a verification field
+- Calculate: `D_liq_calc = D − Caixa`. Must match the release figure (2% tolerance).
+- If difference > 2%: investigate before recording.
 
-**PL — Patrimônio Líquido**
-- Buscar: "Patrimônio Líquido" total consolidado
+**PL — Shareholders' Equity**
+- Look for: total consolidated "Patrimônio Líquido"
 
-**MinInt — Participações Minoritárias**
-- Buscar: "Não Controladores", "Minority Interest"
-- Se não encontrado: registrar 0 com nota "não identificado no release"
+**MinInt — Minority Interest**
+- Look for: "Não Controladores", "Minority Interest"
+- If not found: record 0 with note "not identified in release"
 
-**AtvNOp — Ativos Não Operacionais**
-- Participações em empresas não relacionadas à operação, imóveis não operacionais
-- Se não identificado: registrar 0
+**AtvNOp — Non-Operating Assets**
+- Equity stakes in companies unrelated to operations, non-operating real estate
+- If not identified: record 0
 
-### Bloco Mercado e Ações
+### Market and Shares Block
 
-**Shares — Ações em Circulação**
-- Buscar: "Ações em Circulação", "Shares Outstanding", total ON + PN
-- Excluir ações em tesouraria
-- Converter para milhões: se o release reportar em unidades, dividir por 1.000.000
-- Exemplo: "399.087.450 ações" → Shares = 399,087
+**Shares — Shares Outstanding**
+- Look for: "Ações em Circulação", "Shares Outstanding", total common + preferred
+- Exclude treasury shares
+- Convert to millions: if release reports in units, divide by 1,000,000
+- Example: "399,087,450 shares" → Shares = 399.087
 
-**P — Preço da Ação**
-- Buscar: cotação divulgada no release ou valor de mercado ÷ Shares
-- Se não encontrado no release: registrar `"valor": null, "confianca": "PENDENTE"` e solicitar ao usuário
+**P — Share Price**
+- Look for: price disclosed in the release or market cap ÷ Shares
+- If not found in the release: record `"valor": null, "confianca": "PENDING"` and ask the user
 
 **MktCap**
-- Buscar: "Market Cap", "Valor de Mercado" — campo de verificação
-- Calcular: `MktCap_calc = P × Shares`. Deve bater com release (tolerância 5%).
+- Look for: "Market Cap", "Valor de Mercado" — verification field
+- Calculate: `MktCap_calc = P × Shares`. Must match release (5% tolerance).
 
-### Bloco Operacional
+### Operating Block
 
-**Rev_ant — Receita do Período Anterior**
-- Coluna comparativa do mesmo período do ano anterior
+**Rev_ant — Prior Period Revenue**
+- Comparative column for the same period of the prior year
 
 **CAPEX**
-- Buscar: "Investimentos", "Aquisição de imobilizado", "Additions to PP&E"
+- Look for: "Investimentos", "Aquisição de imobilizado", "Additions to PP&E"
 
 ---
 
-## FASE 4 — Calcular campos derivados
+## PHASE 4 — Calculate derived fields
 
-Após extrair todos os campos, calcular:
+After extracting all fields, calculate:
 
 ```
 IR_ef      = IR_pago / LAIR
-             → esperado entre 0,15 e 0,45 para empresas brasileiras
-             → se < 0 ou > 0,60: revisar IR_pago e LAIR
+             → expected between 0.15 and 0.45 for Brazilian companies
+             → if < 0 or > 0.60: review IR_pago and LAIR
 
 Mg_atual   = EBIT_0 / Rev_0
-             → se > 0,40: verificar se EBIT_0 é realmente EBIT (não EBITDA)
+             → if > 0.40: verify that EBIT_0 is truly EBIT (not EBITDA)
 
 g_recente  = (Rev_0 / Rev_ant) − 1
 
@@ -146,43 +146,43 @@ ROIC_atual = (EBIT_0 × (1 − IR_ef)) / CI
 
 StC_hist   = Rev_0 / CI
 
-D_liq_calc = D − Caixa  → comparar com D_liq do release
+D_liq_calc = D − Caixa  → compare with D_liq from release
 
-MktCap_calc = P × Shares  → comparar com MktCap do release
+MktCap_calc = P × Shares  → compare with MktCap from release
 ```
 
 ---
 
-## FASE 5 — Verificações de consistência
+## PHASE 5 — Consistency checks
 
-Executar antes de produzir o JSON final:
+Run before producing the final JSON:
 
 ```
 [ ] 1. MktCap_calc = P × Shares = ___ × ___ = ___ M
-        MktCap do release = ___ M   |   Diferença: ___%
-        → OK se < 5%. Se > 5%: revisar Shares (total vs. circulante vs. ex-tesouraria)
+        MktCap from release = ___ M   |   Difference: ___%
+        → OK if < 5%. If > 5%: review Shares (total vs. outstanding vs. ex-treasury)
 
 [ ] 2. D_liq_calc = D − Caixa = ___ − ___ = ___ M
-        D_liq do release = ___ M   |   Diferença: ___%
-        → OK se < 2%. Se > 2%: verificar componentes de D e Caixa
+        D_liq from release = ___ M   |   Difference: ___%
+        → OK if < 2%. If > 2%: check D and Caixa components
 
-[ ] 3. EBIT_0 < EBITDA  (sempre deve ser verdade)
-        EBIT_0 = ___ M, EBITDA = ___ M   →   OK | FALHA (revisar extração)
+[ ] 3. EBIT_0 < EBITDA  (must always be true)
+        EBIT_0 = ___ M, EBITDA = ___ M   →   OK | FAIL (review extraction)
 
-[ ] 4. IR_ef = ___ (esperado 0,15–0,45)   →   OK | ALERTA
+[ ] 4. IR_ef = ___ (expected 0.15–0.45)   →   OK | ALERT
 
 [ ] 5. MktCap_calc / Rev_0 = ___ / ___ = ___×
-        → OK se ≤ 15×. Se > 20×: PARAR — erro de unidade. Não continuar.
+        → OK if ≤ 15×. If > 20×: STOP — unit error. Do not continue.
 
-[ ] 6. D > 0 e D / MktCap_calc = ___% 
-        → Se D > 0 mas ratio < 1%: PARAR — erro de unidade em D.
+[ ] 6. D > 0 and D / MktCap_calc = ___%
+        → If D > 0 but ratio < 1%: STOP — unit error in D.
 ```
 
-Se alguma verificação falhar: corrigir antes de salvar o JSON.
+If any check fails: correct before saving the JSON.
 
 ---
 
-## FASE 6 — JSON de saída
+## PHASE 6 — Output JSON
 
 ```json
 {
@@ -233,4 +233,4 @@ Se alguma verificação falhar: corrigir antes de salvar o JSON.
 }
 ```
 
-**Ao final:** listar todos os campos com status PENDENTE e solicitar ao usuário antes de avançar ao Passo 2.
+**At the end:** list all fields with PENDING status and ask the user before advancing to Step 2.
